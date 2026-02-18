@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <title>{% block title %}My Flask Website{% endblock %}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        nav {
+            background-color: var(--nav-bg);
+            padding: 10px;
+        }
+        nav a {
+            color: var(--link-color);
+            margin: 0 15px;
+            text-decoration: none;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            padding: 20px;
+        }
+        /* Light theme variables */
+        body.light {
+            --bg-color: #f0f8ff;
+            --text-color: #333;
+            --nav-bg: #333;
+            --link-color: white;
+        }
+        /* Dark theme variables */
+        body.dark {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --nav-bg: #1e293b;
+            --link-color: #f8fafc;
+        }
+        .theme-toggle-btn {
+            cursor: pointer;
+            background: none;
+            border: 2px solid var(--link-color);
+            color: var(--link-color);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            float: right;
+        }
+    </style>
+            <style>footer {
+    position: fixed;
+    bottom: 20px;   /* Distance from bottom */
+    right: 20px;    /* Distance from right */
+
+    /* Make it small */
+    padding: 10px 15px;
+    font-size: 0.8rem; /* Smaller text */
+    background: rgba(0, 0, 0, 0.7); /* Semi-transparent */
+    color: white;
+    border-radius: 8px;
+    z-index: 1000; /* Keeps it above other content */
+}
+</style>
+</head>
+<body class="light">
+    <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/weather">Weather</a>
+        <a href="/convert">Currency Converter</a>
+        <a href="/diagnose">diagnose</a>
+        <a href="/interactive">interactive</a>
+        <button class="theme-toggle-btn" onclick="toggleTheme()">🌙Toggle Dark/Light</button>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+<script>
+    // Live clock update
+    function updateTime() {
+        const now = new Date();
+        const formatted = now.toLocaleString();
+        const timeElement = document.getElementById("live-time");
+        if(timeElement) {
+            timeElement.textContent = formatted;
+        }
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    // Dark/Light theme toggle
+    function toggleTheme() {
+        const body = document.body;
+        if(body.classList.contains('light')) {
+            body.classList.remove('light');
+            body.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            body.classList.remove('dark');
+            body.classList.add('light');
+            localStorage.setItem('theme', 'light');
+        }
+    }
+
+    // Load theme from localStorage on page load
+    window.onload = () => {
+        const savedTheme = localStorage.getItem('theme');
+        if(savedTheme) {
+            document.body.className = savedTheme;
+        }
+    };
+</script>
+    <footer class="site-footer">
+    <div class="footer-container">
+        <!-- Columns of content -->
+        <div class="footer-section">
+            <h4>Company</h4>
+            <ul>
+                <li><a href="/about">About Us</a></li>
+                <li><a href="/careers">Careers</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-section">
+            <h4>Social</h4>
+            <!-- Use semantic <address> for contact info -->
+            <address>
+                Email: <a href="mailto:real_account.com">real_acount@gmail.com</a>
+            </address>
+        </div>
+    </div>
+
+    <div class="footer-bottom">
+        <p>&copy; 2025 acaton winner?. All rights reserved.</p>
+    </div>
+</footer>
+</body>
+</html>
