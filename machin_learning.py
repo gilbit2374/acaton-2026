@@ -27,6 +27,8 @@ data = [
     ("תסתכל במראה ותבין למה אין לך חברים", "toxic"),
     ("יא מוזר, מי בכלל חבר שלך?", "toxic"),
     ("אל תנסה להצחיק, אתה רק מביך", "toxic"),
+    ("יזין","toxic"),
+    ("אתה בן של זונה","toxic"),
 
     # --- תוכן תקין (Clean) ---
     ("איזה סרטון אש! אהבתי ממש", "clean"),
@@ -62,17 +64,12 @@ model = make_pipeline(TfidfVectorizer(), MultinomialNB())
 model.fit(texts, labels)
 
 # 4. בדיקה בזמן אמת - כאן אתה יכול להכניס משפטים חדשים
-test_sentences = [
-    "אתה נראה רע מאוד",
-    "תודה על הסרטון המדהים",
-    "אף אחד לא רוצה אותך בקבוצה שלנו"
-]
+sentence=input("the text:\n")
 
 print("--- תוצאות בדיקת המודל ---")
-for sentence in test_sentences:
-    prediction = model.predict([sentence])[0]
-    probability = model.predict_proba([sentence])
-    conf = max(probability[0])
+prediction = model.predict([sentence])[0]
+probability = model.predict_proba([sentence])
+conf = max(probability[0])
 
-    status = "⚠️ פוגעני" if prediction == "toxic" else "✅ נקי"
-    print(f"המשפט: '{sentence}' | תוצאה: {status} | ביטחון: {conf:.2f}")
+status = "⚠️ פוגעני" if prediction == "toxic" else "✅ נקי"
+print(f"המשפט: '{sentence}' | תוצאה: {status} | ביטחון: {conf:.2f}")
