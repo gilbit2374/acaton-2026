@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script type="module">
+  import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers';
+  window.pipeline = pipeline;
+  window.env = env;
+
+  // Look in the same folder as the HTML file
+  env.allowRemoteModels = false;
+  env.localModelPath = './';
+
+  console.log("AI search path set to current folder (frontend).");
+
+  window.addEventListener('load', () => {
+    if (typeof loadModel === 'function') loadModel();
+  });
+</script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>redNote — Group Chat</title>
@@ -245,7 +260,15 @@
   </div>
 
 </div><!-- #app -->
-
+<script>
+  // פונקציית העזר להפעלת המודל (חובה שתהיה כאן או בראש scripts.js)
+  window.runClassifier = async function(task, modelPath) {
+    const pipe = await window.pipeline(task, modelPath);
+    return async (text) => {
+      return await pipe(text);
+    };
+  };
+</script>
     <script src="../backend/scripts.js"></script>
 
 </body>

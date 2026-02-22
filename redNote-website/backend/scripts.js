@@ -373,141 +373,124 @@ function deleteMessage(msgId) {
   State.messages[gid] = (State.messages[gid]||[]).filter(m => m.id !== msgId);
   renderMessages();
 }
+/* ═══════════════════════════════════════════════
+   MESSAGE LOGIC (מתוקן)
+═══════════════════════════════════════════════ */
 
-function sendMessage() {
+async function sendMessage() {
   const inp = document.getElementById('msg-input');
+  const sendBtn = document.getElementById('send-btn');
   const text = inp.value.trim();
+
   if (!text || !State.openGroupId || !State.currentUser) return;
 
-  // ── Middleware pipeline hook (AI keyboard plugs in here) ──
+  inp.disabled = true;
+  sendBtn.disabled = true;
+
   const draft = { text, userId: State.currentUser.id, username: State.currentUser.username };
-  const processed = runMiddleware(draft); // returns null to block
-  if (!processed) return;
-  // ── End middleware ──
 
-  const msg = { id: uid(), groupId: State.openGroupId, ...processed, ts: Date.now() };
-  if (!State.messages[State.openGroupId]) State.messages[State.openGroupId] = [];
-  State.messages[State.openGroupId].push(msg);
+  try {
+    const processed = await runMiddleware(draft);
+    inp.disabled = false;
+    inp.focus();
 
-  inp.value = ''; inp.style.height = '';
-  document.getElementById('send-btn').disabled = true;
-  renderMessages();
+    if (!processed) {
+      sendBtn.disabled = false;
+      return;
+    }
+
+    const msg = { id: uid(), groupId: State.openGroupId, ...processed, ts: Date.now() };
+    if (!State.messages[State.openGroupId]) State.messages[State.openGroupId] = [];
+    State.messages[State.openGroupId].push(msg);
+
+    inp.value = '';
+    inp.style.height = '';
+    renderMessages();
+  } catch (err) {
+    console.error("Error sending message:", err);
+    inp.disabled = false;
+    sendBtn.disabled = false;
+  }
 }
 
-// Placeholder middleware pipeline
-function runMiddleware(draft) {
-  const middlewares = [
-    // async-ready: future AI keyboard sits here
-    // e.g. (d) => { d.text = aiKeyboard.analyze(d.text); return d; }
-  ];
-  return middlewares.reduce((d, fn) => d ? fn(d) : null, draft);
+async function runMiddleware(draft) {
+  if (!classifier) {
+    console.warn("AI not ready yet.");
+    return draft;
+  }
+
+  const analysis = await analyzeMessage(draft.text);
+  const label = String(analysis.label).toUpperCase();
+  const score = analysis.score;
+
+  // בדיקה אם ההודעה רעילה (LABEL_0 מוגדר כעת כרעיל ב-loadModel)
+  if (label === 'LABEL_0' && score > 0.7) {
+    console.log("🚫 Toxicity detected, censoring message...");
+    draft.text = "🚫 הודעה זו נחסמה על ידי מערכת הניטור (תוכן לא הולם)";
+    draft.isBlocked = true;
+  }
+
+  return draft;
 }
 
-function handleMsgKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-}
+// פתרון לשגיאת ה-ReferenceError: מחברים את הפונקציות ל-window
+window.handleMsgKey = function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+};
 
-function autoResize(el) {
+window.autoResize = function(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   document.getElementById('send-btn').disabled = !el.value.trim();
-}
+};
 
 /* ═══════════════════════════════════════════════
-   CREATE GROUP MODAL
+   INIT & AI LOADING (מתוקן עם תיקון היפוך)
 ═══════════════════════════════════════════════ */
-function openModal() {
-  // Build emoji grid
-  const eg = document.getElementById('emoji-grid');
-  eg.innerHTML = EMOJIS.map(e =>
-    `<button class="emoji-btn${State.newGroup.emoji===e?' selected':''}" onclick="selectEmoji('${e}')">${e}</button>`
-  ).join('');
 
-  // Build color grid
-  const cg = document.getElementById('color-grid');
-  cg.innerHTML = COLORS.map(c =>
-    `<div class="color-swatch${State.newGroup.color===c?' selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`
-  ).join('');
+async function loadModel() {
+  try {
+    console.log("Loading AI using quantized model file...");
 
-  // Reset form
-  document.getElementById('new-group-name').value = '';
-  document.getElementById('new-group-desc').value = '';
-  State.newGroup.isPublic = true;
-  const t = document.getElementById('privacy-toggle');
-  t.classList.add('on'); t.classList.remove('off');
-  updateToggleLabel();
+    window.env.localModelPath = './';
+    window.env.allowRemoteModels = false;
 
-  document.getElementById('modal-error').classList.remove('show');
-  document.getElementById('create-modal').classList.add('open');
-}
+    classifier = await window.pipeline('text-classification', 'model_web', {
+      local_files_only: true,
+      model_file_name: 'model_quantized',
+      quantized: false,
+      config: {
+        model_type: 'bert',
+        id2label: {
+          0: 'LABEL_1', // Neutral/Safe
+          1: 'LABEL_0'  // Toxic/Negative (זה מה שה-Middleware מחפש)
+        }
+      }
+    });
 
-function handleOverlayClick(e) {
-  if (e.target === document.getElementById('create-modal')) closeModal();
-}
-function closeModal() { document.getElementById('create-modal').classList.remove('open'); }
-
-function selectEmoji(e) {
-  State.newGroup.emoji = e;
-  document.querySelectorAll('.emoji-btn').forEach(b => b.classList.toggle('selected', b.textContent===e));
-}
-function selectColor(c) {
-  State.newGroup.color = c;
-  document.querySelectorAll('.color-swatch').forEach(s => s.classList.toggle('selected', s.style.background===c || s.style.backgroundColor===c));
-}
-
-function togglePrivacy() {
-  State.newGroup.isPublic = !State.newGroup.isPublic;
-  const t = document.getElementById('privacy-toggle');
-  t.classList.toggle('on', State.newGroup.isPublic);
-  t.classList.toggle('off', !State.newGroup.isPublic);
-  updateToggleLabel();
-}
-function updateToggleLabel() {
-  document.getElementById('toggle-label').textContent = State.newGroup.isPublic ? 'Public Group' : 'Private Group';
-  document.getElementById('toggle-desc').textContent  = State.newGroup.isPublic ? 'Anyone can search & join' : 'Invite-only access';
-}
-
-function createGroup() {
-  const name = document.getElementById('new-group-name').value.trim();
-  const desc = document.getElementById('new-group-desc').value.trim();
-  const errEl = document.getElementById('modal-error');
-
-  if (!name) { errEl.textContent='Group name is required'; errEl.classList.add('show'); return; }
-  if (name.length < 3) { errEl.textContent='Name must be 3+ characters'; errEl.classList.add('show'); return; }
-
-  const newG = {
-    id: uid(),
-    name, description: desc,
-    isPublic: State.newGroup.isPublic,
-    color: State.newGroup.color,
-    emoji: State.newGroup.emoji,
-    creatorId: State.currentUser.id,
-    memberIds: [State.currentUser.id],
-    createdAt: Date.now(),
-  };
-  State.groups.push(newG);
-  State.messages[newG.id] = [];
-  closeModal();
-  renderChats();
-  switchTab('chats');
-}
-
-/* ═══════════════════════════════════════════════
-   ENTER KEY ON AUTH
-═══════════════════════════════════════════════ */
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    if (document.getElementById('auth-view').style.display !== 'none' &&
-        document.activeElement?.classList?.contains('form-input')) {
-      handleAuth();
-    }
+    console.log("✅ AI is live, offline, and the labels are correctly mapped!");
+  } catch (e) {
+    console.error("❌ Model load failed.", e);
   }
-});
+}
 
-/* ═══════════════════════════════════════════════
-   INIT
-═══════════════════════════════════════════════ */
-// Hide main app initially (auth shows by default via HTML)
-document.getElementById('main-app').style.display = 'none';
-// Show create btn by default
-document.getElementById('create-group-btn').style.display = 'flex';
+async function analyzeMessage(text) {
+  if (!classifier) return { label: 'LABEL_1', score: 0 };
+  try {
+    const cleanText = String(text).trim();
+    if (!cleanText) return { label: 'LABEL_1', score: 0 };
+
+    const result = await classifier(cleanText);
+    return Array.isArray(result) ? result[0] : result;
+  } catch (err) {
+    console.error("Analysis failed:", err);
+    return { label: 'LABEL_1', score: 0 };
+  }
+}
+
+// חשיפת loadModel לשימוש חיצוני
+window.loadModel = loadModel;
+window.sendMessage = sendMessage;
