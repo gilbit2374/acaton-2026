@@ -1,343 +1,560 @@
-/* ═══════════════════════════════════════════════
-   STATE
-═══════════════════════════════════════════════ */
-const State = {
-  currentUser: null,
-  authMode: 'login',       // 'login' | 'register'
-  activeTab: 'chats',
-  openGroupId: null,
-  searchFilter: 'all',
-  newGroup: { isPublic: true, color: '#D91C1C', emoji: '💬' },
 
-  groups: [
-    { id:'g1', name:'Designers Hub',    description:'UI/UX, branding & creative discussion',   isPublic:true,  color:'#2563EB', emoji:'🎨', creatorId:'bot1', memberIds:['bot1','bot2','bot3'], createdAt: Date.now()-864e5*5 },
-    { id:'g2', name:'Startup Founders', description:'Building companies, sharing lessons',      isPublic:true,  color:'#D97706', emoji:'🚀', creatorId:'bot2', memberIds:['bot1','bot2'],        createdAt: Date.now()-864e5*2 },
-    { id:'g3', name:'AI & LLMs',        description:'Everything artificial intelligence',       isPublic:true,  color:'#7C3AED', emoji:'🤖', creatorId:'bot3', memberIds:['bot1','bot2','bot3'], createdAt: Date.now()-864e5*10 },
-    { id:'g4', name:'Product Growth',   description:'Growth hacking, metrics & retention',      isPublic:true,  color:'#059669', emoji:'📈', creatorId:'bot1', memberIds:['bot1'],               createdAt: Date.now()-864e5 },
-    { id:'g5', name:'Dev Collective',   description:'Code, architecture, and best practices',   isPublic:true,  color:'#0D1B2A', emoji:'💻', creatorId:'bot2', memberIds:['bot2'],               createdAt: Date.now()-864e5*3 },
-  ],
+console.log("js");
+/* ═══════════════════════════════════════════════════════════════════
+   ███████╗██╗██████╗ ███████╗██████╗  █████╗ ███████╗███████╗
+   ██╔════╝██║██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝
+   █████╗  ██║██████╔╝█████╗  ██████╔╝███████║███████╗█████╗
+   ██╔══╝  ██║██╔══██╗██╔══╝  ██╔══██╗██╔══██║╚════██║██╔══╝
+   ██║     ██║██║  ██║███████╗██████╔╝██║  ██║███████║███████╗
+   ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝
 
-  messages: {
-    g1:[
-      { id:'m1', groupId:'g1', userId:'bot1', username:'alex.design', text:'Anyone using Figma\'s new variables feature? Game changer for design systems 🔥', ts: Date.now()-36e5*4 },
-      { id:'m2', groupId:'g1', userId:'bot2', username:'sarah.ux',    text:'Yes! Been using it for a month now. Token management is so much cleaner', ts: Date.now()-36e5*3 },
-      { id:'m3', groupId:'g1', userId:'bot3', username:'mike.brand',  text:'How\'s the performance on larger files though? Mine gets laggy with 300+ components', ts: Date.now()-36e5*2 },
-    ],
-    g2:[
-      { id:'m4', groupId:'g2', userId:'bot1', username:'alex.design', text:'Fundraising advice needed — when should you bring in a co-founder?', ts: Date.now()-72e5 },
-      { id:'m5', groupId:'g2', userId:'bot2', username:'sarah.ux',    text:'As early as possible if they bring complementary skills you lack', ts: Date.now()-36e5 },
-    ],
-    g3:[
-      { id:'m6', groupId:'g3', userId:'bot3', username:'mike.brand',  text:'Claude Sonnet 4 is genuinely wild. Extended thinking is useful for architecture decisions', ts: Date.now()-18e5 },
-      { id:'m7', groupId:'g3', userId:'bot1', username:'alex.design', text:'Agreed — been using it for code review. Catches things I\'d miss after 4 hours of coding 😅', ts: Date.now()-9e5 },
-    ],
-    g4: [],
-    g5: [],
-  },
+   ▸ STEP 1: Replace FIREBASE_CONFIG below with your project's values
+     Firebase Console → Project Settings → Your Apps → SDK setup
+
+   ▸ STEP 2: Enable Email/Password auth
+     Firebase Console → Authentication → Sign-in method → Email/Password
+
+   ▸ STEP 3: Create Firestore database
+     Firebase Console → Firestore Database → Create database → Start in test mode
+     Then add the rules from FIREBASE_SETUP.md
+
+   ▸ STEP 4: Create Firestore composite indexes (auto-prompted on first use,
+     or copy from FIREBASE_SETUP.md)
+═══════════════════════════════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyBbC67cQhTG6e6kxnxg37USavBYqAjr1YM",
+  authDomain:        "rednote-hackton.firebaseapp.com",
+  projectId:         "rednote-hackton",
+  storageBucket:     "rednote-hackton.firebasestorage.app",
+  messagingSenderId: "157982968865",
+  appId:             "1:157982968865:web:9f35c9e3ce5013402a6760",
+  measurementId:     "G-PDYNYTF1XC"
 };
+
+/* ═══════════════════════════════════════════════
+   INIT + CONFIG CHECK
+═══════════════════════════════════════════════ */
+const CONFIG_IS_PLACEHOLDER = FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY';
+
+let app, auth, db;
+
+if (CONFIG_IS_PLACEHOLDER) {
+  document.getElementById('loading-overlay').classList.add('hidden');
+  document.getElementById('config-warning').classList.add('show');
+} else {
+  app  = firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+  db   = firebase.firestore();
+  // Enable offline persistence
+  db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+  initApp();
+}
+
+/* ═══════════════════════════════════════════════
+   APP STATE
+═══════════════════════════════════════════════ */
+const S = {
+  user:          null,   // Firebase Auth user
+  profile:       null,   // Firestore user doc
+  activeTab:     'chats',
+  openGroupId:   null,
+  openGroupData: null,
+  searchFilter:  'all',
+  allPublicGroups: [],   // cached for search filtering
+  myGroupsData:  [],     // live from onSnapshot
+  newGroup: { isPublic:true, color:'#D91C1C', emoji:'💬' },
+};
+
+// Unsubscribe functions for live listeners
+let unsubMyGroups   = null;
+let unsubPublicGroups = null;
+let unsubMessages   = null;
+
+/* ═══════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════ */
+const EMOJIS = ['💬','🚀','🎨','💡','🔥','📈','🤖','🌍','🎯','🛠️','📚','🎮'];
+const COLORS = ['#D91C1C','#0D1B2A','#2563EB','#7C3AED','#059669','#D97706','#DB2777'];
 
 /* ═══════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════ */
-const uid = () => Math.random().toString(36).slice(2, 10);
-const initial = s => (s || '?').charAt(0).toUpperCase();
-const esc    = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+const esc     = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const initial = s => (s||'?').charAt(0).toUpperCase();
+const uid     = () => Math.random().toString(36).slice(2,10);
 
 function fmtTime(ts) {
-  return new Date(ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
 }
 function fmtDate(ts) {
-  const d = new Date(ts), t = new Date();
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const t = new Date();
   if (d.toDateString() === t.toDateString()) return 'Today';
   const y = new Date(t); y.setDate(y.getDate()-1);
   if (d.toDateString() === y.toDateString()) return 'Yesterday';
   return d.toLocaleDateString([], { month:'short', day:'numeric' });
 }
-
-const EMOJIS  = ['💬','🚀','🎨','💡','🔥','📈','🤖','🌍','🎯','🛠️','📚','🎮'];
-const COLORS  = ['#D91C1C','#0D1B2A','#2563EB','#7C3AED','#059669','#D97706','#DB2777'];
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+function setBtn(id, text, disabled) {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.textContent = text;
+  b.disabled = disabled;
+}
+function skeletonHTML(n=3) {
+  return Array(n).fill(`
+    <div class="skeleton-item">
+      <div class="skeleton skel-avatar"></div>
+      <div class="skel-lines">
+        <div class="skeleton skel-line1"></div>
+        <div class="skeleton skel-line2"></div>
+      </div>
+    </div>`).join('');
+}
 
 /* ═══════════════════════════════════════════════
-   AUTH
+   APP INIT — AUTH STATE OBSERVER
 ═══════════════════════════════════════════════ */
+function initApp() {
+  auth.onAuthStateChanged(async (firebaseUser) => {
+    if (firebaseUser) {
+      // Fetch user profile from Firestore
+      try {
+        const snap = await db.collection('users').doc(firebaseUser.uid).get();
+        S.user    = firebaseUser;
+        S.profile = snap.exists ? snap.data() : {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          username: firebaseUser.email.split('@')[0],
+          displayName: firebaseUser.email.split('@')[0],
+        };
+        showMainApp();
+      } catch (e) {
+        console.error('Profile fetch error', e);
+        showAuthScreen();
+      }
+    } else {
+      S.user = null; S.profile = null;
+      teardownListeners();
+      showAuthScreen();
+    }
+    hideLoading();
+  });
+}
+
+function hideLoading() {
+  const ol = document.getElementById('loading-overlay');
+  ol.classList.add('hidden');
+  setTimeout(() => ol.remove(), 500);
+}
+
+function showAuthScreen() {
+  document.getElementById('auth-view').style.display = 'flex';
+  document.getElementById('main-app').style.display  = 'none';
+}
+
+function showMainApp() {
+  document.getElementById('auth-view').style.display = 'none';
+  const ma = document.getElementById('main-app');
+  ma.style.display = 'flex';
+  ma.style.flexDirection = 'column';
+  ma.style.overflow = 'hidden';
+
+  // Update header + profile
+  const p = S.profile;
+  document.getElementById('header-avatar').textContent = initial(p.displayName || p.username);
+  document.getElementById('profile-big-avatar').textContent = initial(p.displayName || p.username);
+  document.getElementById('profile-name').textContent  = p.displayName || p.username;
+  document.getElementById('profile-uname').textContent = '@' + p.username;
+  document.getElementById('profile-email').textContent = p.email;
+
+  // Start live listeners
+  startMyGroupsListener();
+  startPublicGroupsListener();
+  switchTab('chats');
+}
+
+function teardownListeners() {
+  if (unsubMyGroups)     { unsubMyGroups();     unsubMyGroups = null; }
+  if (unsubPublicGroups) { unsubPublicGroups(); unsubPublicGroups = null; }
+  if (unsubMessages)     { unsubMessages();     unsubMessages = null; }
+}
+
+/* ═══════════════════════════════════════════════
+   AUTH — LOGIN / REGISTER
+═══════════════════════════════════════════════ */
+let authMode = 'login';
+
 function switchAuthTab(mode) {
-  State.authMode = mode;
+  authMode = mode;
   document.getElementById('tab-login').classList.toggle('active', mode==='login');
   document.getElementById('tab-register').classList.toggle('active', mode==='register');
   document.getElementById('register-fields').style.display = mode==='register' ? 'block' : 'none';
   document.getElementById('auth-submit-btn').textContent = mode==='login' ? 'Sign In' : 'Create Account';
-  document.getElementById('auth-hint').style.display = mode==='login' ? 'block' : 'none';
-  showAuthError('');
+  showError('auth-error', '');
 }
 
-function showAuthError(msg) {
-  const el = document.getElementById('auth-error');
-  el.textContent = msg;
-  el.classList.toggle('show', !!msg);
-}
-
-function handleAuth() {
+async function handleAuth() {
   const email    = document.getElementById('input-email').value.trim();
   const password = document.getElementById('input-password').value;
-  const btn      = document.getElementById('auth-submit-btn');
+  if (!email || !password) return showError('auth-error','Please fill all fields');
+  if (password.length < 6)  return showError('auth-error','Password must be at least 6 characters');
 
-  if (!email || !password) return showAuthError('Please fill all fields');
-  if (password.length < 6)  return showAuthError('Password must be at least 6 characters');
+  setBtn('auth-submit-btn', 'Please wait…', true);
+  showError('auth-error', '');
 
-  btn.disabled = true; btn.textContent = 'Please wait…';
-
-  setTimeout(() => {
-    if (State.authMode === 'register') {
-      const username    = document.getElementById('input-username').value.trim().toLowerCase().replace(/\s/g,'');
+  try {
+    if (authMode === 'register') {
+      const username    = document.getElementById('input-username').value.trim().toLowerCase().replace(/[^a-z0-9._]/g,'');
       const displayName = document.getElementById('input-displayname').value.trim();
-      if (!username || !displayName) { btn.disabled=false; btn.textContent='Create Account'; return showAuthError('All fields are required'); }
-      if (username.length < 3) { btn.disabled=false; btn.textContent='Create Account'; return showAuthError('Username must be 3+ characters'); }
-      loginUser({ id: uid(), email, username, displayName });
+      if (!username || !displayName) throw new Error('All fields are required');
+      if (username.length < 3)       throw new Error('Username must be 3+ characters');
+      if (!/^[a-z0-9._]+$/.test(username)) throw new Error('Username: letters, numbers, . and _ only');
+
+      // Check username uniqueness
+      const existing = await db.collection('users').where('username','==',username).limit(1).get();
+      if (!existing.empty) throw new Error('Username is already taken');
+
+      // Create Firebase Auth user
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+
+      // Save profile to Firestore
+      await db.collection('users').doc(cred.user.uid).set({
+        uid: cred.user.uid, email, username, displayName,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        groupIds: [],
+      });
+      // Auth state observer handles the rest
+
     } else {
-      loginUser({ id: 'demo_'+uid(), email, username: email.split('@')[0].toLowerCase(), displayName: email.split('@')[0] });
+      await auth.signInWithEmailAndPassword(email, password);
     }
-    btn.disabled = false;
-  }, 700);
+  } catch (err) {
+    let msg = err.message || 'Something went wrong';
+    if (err.code === 'auth/user-not-found')    msg = 'No account found with this email';
+    if (err.code === 'auth/wrong-password')     msg = 'Incorrect password';
+    if (err.code === 'auth/email-already-in-use') msg = 'Email already registered — try signing in';
+    if (err.code === 'auth/invalid-email')      msg = 'Invalid email address';
+    if (err.code === 'auth/too-many-requests')  msg = 'Too many attempts. Try again later';
+    showError('auth-error', msg);
+    setBtn('auth-submit-btn', authMode==='login'?'Sign In':'Create Account', false);
+  }
 }
 
-function loginUser(user) {
-  State.currentUser = user;
-  document.getElementById('auth-view').style.display = 'none';
-  document.getElementById('main-app').style.display  = 'flex';
-  document.getElementById('header-avatar').textContent = initial(user.username);
-  document.getElementById('profile-big-avatar').textContent = initial(user.username);
-  document.getElementById('profile-name').textContent  = user.displayName;
-  document.getElementById('profile-uname').textContent = '@' + user.username;
-  document.getElementById('profile-email').textContent = user.email;
-  switchTab('chats');
-  renderChats();
-}
-
-function logout() {
-  State.currentUser = null;
-  State.openGroupId = null;
-  document.getElementById('main-app').style.display  = 'none';
-  document.getElementById('auth-view').style.display  = 'flex';
-  document.getElementById('input-email').value = '';
-  document.getElementById('input-password').value = '';
-  switchAuthTab('login');
+async function logout() {
+  await auth.signOut();
 }
 
 /* ═══════════════════════════════════════════════
    NAVIGATION
 ═══════════════════════════════════════════════ */
 function switchTab(tab) {
-  State.activeTab = tab;
+  S.activeTab = tab;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-'+tab).classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === tab);
-  });
-  const showPlus = tab === 'chats';
-  document.getElementById('create-group-btn').style.display = showPlus ? 'flex' : 'none';
-
-  if (tab === 'chats')   renderChats();
-  if (tab === 'search')  renderSearch();
-  if (tab === 'profile') renderProfile();
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+  document.getElementById('create-group-btn').style.display = tab==='chats' ? 'flex' : 'none';
+  if (tab==='profile') renderProfile();
+  if (tab==='search')  renderSearch();
 }
 
 /* ═══════════════════════════════════════════════
-   CHAT LIST (Chats Screen)
+   MY GROUPS — LIVE LISTENER
 ═══════════════════════════════════════════════ */
-function myGroups() {
-  if (!State.currentUser) return [];
-  return State.groups.filter(g => g.memberIds.includes(State.currentUser.id));
+function startMyGroupsListener() {
+  if (unsubMyGroups) unsubMyGroups();
+
+  // Show skeletons while loading
+  document.getElementById('chats-list').innerHTML = skeletonHTML();
+
+  unsubMyGroups = db.collection('groups')
+    .where('memberIds', 'array-contains', S.user.uid)
+    .orderBy('lastMessageAt', 'desc')
+    .onSnapshot(
+      (snap) => {
+        S.myGroupsData = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+        renderChats();
+      },
+      (err) => {
+        console.warn('Groups listener error — index may be missing:', err.message);
+        // Fallback: query without ordering
+        db.collection('groups')
+          .where('memberIds','array-contains', S.user.uid)
+          .get()
+          .then(s => {
+            S.myGroupsData = s.docs.map(d=>({id:d.id,...d.data()}));
+            renderChats();
+          });
+      }
+    );
 }
 
+/* ═══════════════════════════════════════════════
+   PUBLIC GROUPS — LIVE LISTENER
+═══════════════════════════════════════════════ */
+function startPublicGroupsListener() {
+  if (unsubPublicGroups) unsubPublicGroups();
+
+  unsubPublicGroups = db.collection('groups')
+    .where('isPublic','==',true)
+    .orderBy('createdAt','desc')
+    .onSnapshot(
+      (snap) => {
+        S.allPublicGroups = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+        if (S.activeTab === 'search') renderSearch();
+      },
+      (err) => {
+        console.warn('Public groups listener error:', err.message);
+        db.collection('groups').where('isPublic','==',true).get()
+          .then(s => {
+            S.allPublicGroups = s.docs.map(d=>({id:d.id,...d.data()}));
+            if (S.activeTab==='search') renderSearch();
+          });
+      }
+    );
+}
+
+/* ═══════════════════════════════════════════════
+   RENDER — CHATS SCREEN
+═══════════════════════════════════════════════ */
+const lockSVG  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+const globeSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+const usersSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+
 function renderChats() {
-  const list    = document.getElementById('chats-list');
-  const groups  = myGroups();
+  const list   = document.getElementById('chats-list');
+  const groups = S.myGroupsData;
   document.getElementById('chats-count').textContent = groups.length + ' joined';
 
   if (groups.length === 0) {
     list.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        </div>
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
         <div class="empty-title">No chats yet</div>
-        <div class="empty-sub">Join public groups or create your own<br/>to start chatting with others.</div>
+        <div class="empty-sub">Join public groups from Discover,<br/>or tap + to create your own.</div>
       </div>`;
     return;
   }
 
   list.innerHTML = groups.map(g => {
-    const msgs = State.messages[g.id] || [];
-    const last = msgs[msgs.length - 1];
-    const lockSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
-    const globeSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+    const preview = g.lastMessagePreview
+      ? `${esc(g.lastMessageSender||'')}: ${esc(g.lastMessagePreview)}`
+      : 'No messages yet';
+    const timeStr = g.lastMessageAt ? fmtTime(g.lastMessageAt) : '';
     return `
       <div class="chat-item" onclick="openChat('${g.id}')">
-        <div class="chat-avatar" style="background:${g.color}">
-          ${g.emoji || initial(g.name)}
+        <div class="chat-avatar" style="background:${g.color||'#D91C1C'}">
+          ${g.emoji||initial(g.name)}
           <div class="privacy-dot">${g.isPublic ? globeSVG : lockSVG}</div>
         </div>
         <div class="chat-info">
           <div class="chat-name">${esc(g.name)}</div>
-          <div class="chat-preview">${last ? esc(last.username)+': '+esc(last.text) : 'No messages yet'}</div>
+          <div class="chat-preview">${preview}</div>
         </div>
         <div class="chat-meta">
-          <span class="chat-time">${last ? fmtTime(last.ts) : ''}</span>
-          <span class="member-pill">${g.memberIds.length} members</span>
+          <span class="chat-time">${timeStr}</span>
+          <span class="member-pill">${(g.memberIds||[]).length} members</span>
         </div>
       </div>`;
   }).join('');
 }
 
 /* ═══════════════════════════════════════════════
-   DISCOVER / SEARCH SCREEN
+   RENDER — DISCOVER / SEARCH SCREEN
 ═══════════════════════════════════════════════ */
 let searchFilterState = 'all';
+
 function setFilter(f) {
   searchFilterState = f;
-  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === f));
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter===f));
   renderSearch();
 }
 
-function renderSearch() {
-  const q    = (document.getElementById('search-input').value || '').toLowerCase();
-  const uid  = State.currentUser?.id;
-  const all  = State.groups.filter(g => g.isPublic);
+function filterSearch() { renderSearch(); }
 
-  const filtered = all.filter(g => {
-    const matchQ = !q || g.name.toLowerCase().includes(q) || (g.description||'').toLowerCase().includes(q);
-    const joined = uid && g.memberIds.includes(uid);
-    const matchF = searchFilterState==='all' || (searchFilterState==='joined' && joined) || (searchFilterState==='discover' && !joined);
+function renderSearch() {
+  const q      = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const uid    = S.user?.uid;
+  const groups = S.allPublicGroups;
+
+  if (groups.length === 0) {
+    document.getElementById('search-results').innerHTML = skeletonHTML(4);
+    return;
+  }
+
+  const filtered = groups.filter(g => {
+    const matchQ  = !q || g.name.toLowerCase().includes(q) || (g.description||'').toLowerCase().includes(q);
+    const joined  = uid && (g.memberIds||[]).includes(uid);
+    const matchF  = searchFilterState==='all'
+      || (searchFilterState==='joined' && joined)
+      || (searchFilterState==='discover' && !joined);
     return matchQ && matchF;
   });
 
   const el = document.getElementById('search-results');
-
   if (filtered.length === 0) {
     el.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        </div>
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
         <div class="empty-title">No groups found</div>
-        <div class="empty-sub">Try a different search term</div>
+        <div class="empty-sub">Try a different search or create your own</div>
       </div>`;
     return;
   }
 
-  const usersSVG  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
-  const globeSVG2 = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
-
   el.innerHTML = '<div style="padding:6px 0">' + filtered.map(g => {
-    const joined = uid && g.memberIds.includes(uid);
-    const actionBtn = joined
+    const joined = uid && (g.memberIds||[]).includes(uid);
+    const btn    = joined
       ? `<button class="btn-open" onclick="openChat('${g.id}');event.stopPropagation()">Open</button>`
-      : `<button class="btn-join" onclick="joinGroup('${g.id}');event.stopPropagation()">Join</button>`;
+      : `<button class="btn-join" id="join-btn-${g.id}" onclick="joinGroup('${g.id}');event.stopPropagation()">Join</button>`;
     return `
       <div class="group-card">
         <div class="group-card-top">
-          <div class="group-card-avatar" style="background:${g.color};color:white;font-size:20px">${g.emoji || initial(g.name)}</div>
+          <div class="group-card-avatar" style="background:${g.color||'#D91C1C'};color:white">${g.emoji||initial(g.name)}</div>
           <div>
             <div class="group-card-name">${esc(g.name)}</div>
             <div class="group-card-desc">${esc(g.description||'')}</div>
           </div>
         </div>
         <div class="group-card-bottom">
-          <div class="group-stats">${usersSVG} ${g.memberIds.length} members &nbsp;·&nbsp; ${globeSVG2} Public</div>
-          ${actionBtn}
+          <div class="group-stats">${usersSVG} ${(g.memberIds||[]).length} members &nbsp;·&nbsp; ${globeSVG} Public</div>
+          ${btn}
         </div>
       </div>`;
   }).join('') + '</div>';
 }
 
-function joinGroup(groupId) {
-  const g = State.groups.find(x => x.id === groupId);
-  if (!g || !State.currentUser) return;
-  if (!g.memberIds.includes(State.currentUser.id)) {
-    g.memberIds.push(State.currentUser.id);
-    if (!State.messages[groupId]) State.messages[groupId] = [];
+async function joinGroup(groupId) {
+  if (!S.user) return;
+  const btn = document.getElementById('join-btn-'+groupId);
+  if (btn) { btn.textContent = 'Joining…'; btn.disabled = true; }
+  try {
+    await db.collection('groups').doc(groupId).update({
+      memberIds: firebase.firestore.FieldValue.arrayUnion(S.user.uid),
+    });
+    // Also update user's groupIds
+    await db.collection('users').doc(S.user.uid).update({
+      groupIds: firebase.firestore.FieldValue.arrayUnion(groupId),
+    });
+    // Snapshot listeners will auto-update both screens
+  } catch (e) {
+    console.error('Join error', e);
+    if (btn) { btn.textContent = 'Join'; btn.disabled = false; }
   }
-  renderSearch();
-  renderChats();
 }
 
 /* ═══════════════════════════════════════════════
-   PROFILE SCREEN
+   RENDER — PROFILE SCREEN
 ═══════════════════════════════════════════════ */
 function renderProfile() {
-  const n = myGroups().length;
-  document.getElementById('profile-group-desc').textContent  = n + ' groups joined';
+  const n   = S.myGroupsData.length;
+  const mod = S.myGroupsData.filter(g => g.creatorId === S.user?.uid).length;
+  document.getElementById('profile-group-desc').textContent = n + ' groups joined';
   document.getElementById('profile-group-count').textContent = n;
+  document.getElementById('profile-mod-desc').textContent = mod + ' group' + (mod!==1?'s':'') + ' created';
 }
 
 /* ═══════════════════════════════════════════════
-   CHAT SCREEN
+   CHAT SCREEN — OPEN / CLOSE
 ═══════════════════════════════════════════════ */
 function openChat(groupId) {
-  const g = State.groups.find(x => x.id === groupId);
+  const g = S.myGroupsData.find(x=>x.id===groupId)
+         || S.allPublicGroups.find(x=>x.id===groupId);
   if (!g) return;
-  State.openGroupId = groupId;
 
-  const isMod = g.creatorId === State.currentUser?.id;
+  S.openGroupId   = groupId;
+  S.openGroupData = g;
+  const isMod = g.creatorId === S.user?.uid;
+
   const avatar = document.getElementById('chat-hdr-avatar');
-  avatar.style.background = g.color;
-  avatar.textContent = g.emoji || initial(g.name);
-  avatar.style.color = 'white';
-  document.getElementById('chat-hdr-name').textContent = g.name;
-  document.getElementById('chat-hdr-sub').textContent  = g.memberIds.length + ' members · ' + (g.isPublic ? 'Public' : 'Private');
-  document.getElementById('chat-mod-badge').style.display = isMod ? 'block' : 'none';
+  avatar.style.background = g.color||'#D91C1C';
+  avatar.textContent = g.emoji||initial(g.name);
 
-  renderMessages();
+  document.getElementById('chat-hdr-name').textContent = g.name;
+  document.getElementById('chat-hdr-sub').textContent  = (g.memberIds||[]).length + ' members · ' + (g.isPublic?'Public':'Private');
+  document.getElementById('chat-mod-badge').style.display = isMod ? 'inline' : 'none';
+
+  document.getElementById('messages-list').innerHTML = skeletonHTML(3);
   document.getElementById('chat-screen').classList.add('open');
 
-  // Reset input
   const inp = document.getElementById('msg-input');
   inp.value = ''; inp.style.height = '';
   document.getElementById('send-btn').disabled = true;
-  setTimeout(() => inp.focus(), 350);
+
+  startMessagesListener(groupId);
+  setTimeout(() => inp.focus(), 360);
 }
 
 function closeChat() {
   document.getElementById('chat-screen').classList.remove('open');
-  State.openGroupId = null;
-  renderChats();
+  if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+  S.openGroupId = null; S.openGroupData = null;
 }
 
-function renderMessages() {
-  const list   = document.getElementById('messages-list');
-  const msgs   = State.messages[State.openGroupId] || [];
-  const g      = State.groups.find(x => x.id === State.openGroupId);
-  const isMod  = g?.creatorId === State.currentUser?.id;
-  const uid    = State.currentUser?.id;
+/* ═══════════════════════════════════════════════
+   MESSAGES — REAL-TIME LISTENER (onSnapshot)
+═══════════════════════════════════════════════ */
+function startMessagesListener(groupId) {
+  if (unsubMessages) unsubMessages();
+
+  unsubMessages = db.collection('groups').doc(groupId)
+    .collection('messages')
+    .orderBy('createdAt', 'asc')
+    .limit(100)          // ← pagination hook: change to startAfter(cursor) for history loading
+    .onSnapshot(
+      (snap) => {
+        const msgs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+        renderMessages(msgs, groupId);
+      },
+      (err) => { console.error('Messages error', err); }
+    );
+}
+
+/* ═══════════════════════════════════════════════
+   RENDER — MESSAGES
+═══════════════════════════════════════════════ */
+function renderMessages(msgs, groupId) {
+  const list  = document.getElementById('messages-list');
+  const g     = S.openGroupData;
+  const isMod = g?.creatorId === S.user?.uid;
+  const myUid = S.user?.uid;
 
   if (msgs.length === 0) {
     list.innerHTML = `
       <div class="empty-state" style="padding-top:80px">
-        <div class="empty-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        </div>
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
         <div class="empty-title">No messages yet</div>
         <div class="empty-sub">Be the first to say something!</div>
       </div>`;
     return;
   }
 
+  const wasAtBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+
   let html = '';
   let lastDate = null;
 
   msgs.forEach(msg => {
-    const date = fmtDate(msg.ts);
-    if (date !== lastDate) {
+    const date = fmtDate(msg.createdAt);
+    if (date && date !== lastDate) {
       html += `<div class="date-divider"><span>${date}</span></div>`;
       lastDate = date;
     }
 
-    const isOut  = msg.userId === uid;
+    const isOut  = msg.userId === myUid;
     const canDel = isMod || isOut;
     const mini   = initial(msg.username);
 
     const delBtn = canDel
-      ? `<button class="del-btn" onclick="deleteMessage('${msg.id}')" title="Delete">
+      ? `<button class="del-btn" onclick="deleteMessage('${groupId}','${msg.id}')" title="Delete">
            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
          </button>`
       : '';
@@ -347,7 +564,7 @@ function renderMessages() {
         <div class="msg-row out">
           <div class="msg-wrap out">
             <div class="msg-bubble out">${esc(msg.text)}</div>
-            <div class="msg-foot">${delBtn}<span class="msg-time">${fmtTime(msg.ts)}</span></div>
+            <div class="msg-foot">${delBtn}<span class="msg-time">${fmtTime(msg.createdAt)}</span></div>
           </div>
         </div>`;
     } else {
@@ -357,56 +574,101 @@ function renderMessages() {
           <div class="msg-wrap">
             <div class="msg-sender-name">@${esc(msg.username)}</div>
             <div class="msg-bubble in">${esc(msg.text)}</div>
-            <div class="msg-foot"><span class="msg-time">${fmtTime(msg.ts)}</span>${delBtn}</div>
+            <div class="msg-foot"><span class="msg-time">${fmtTime(msg.createdAt)}</span>${delBtn}</div>
           </div>
         </div>`;
     }
   });
 
   list.innerHTML = html;
-  list.scrollTop = list.scrollHeight;
+  if (wasAtBottom || true) list.scrollTop = list.scrollHeight;
 }
 
-function deleteMessage(msgId) {
-  const gid = State.openGroupId;
-  if (!gid) return;
-  State.messages[gid] = (State.messages[gid]||[]).filter(m => m.id !== msgId);
-  renderMessages();
-}
-
-function sendMessage() {
-  const inp = document.getElementById('msg-input');
+/* ═══════════════════════════════════════════════
+   SEND MESSAGE
+═══════════════════════════════════════════════ */
+async function sendMessage() {
+  const inp  = document.getElementById('msg-input');
   const text = inp.value.trim();
-  if (!text || !State.openGroupId || !State.currentUser) return;
+  if (!text || !S.openGroupId || !S.user) return;
 
-  // ── Middleware pipeline hook (AI keyboard plugs in here) ──
-  const draft = { text, userId: State.currentUser.id, username: State.currentUser.username };
-  const processed = runMiddleware(draft); // returns null to block
-  if (!processed) return;
-  // ── End middleware ──
-
-  const msg = { id: uid(), groupId: State.openGroupId, ...processed, ts: Date.now() };
-  if (!State.messages[State.openGroupId]) State.messages[State.openGroupId] = [];
-  State.messages[State.openGroupId].push(msg);
+  // ── Middleware pipeline (AI keyboard plugs in here) ──────────────
+  const draft = {
+    text,
+    userId:   S.user.uid,
+    username: S.profile.username,
+  };
+  const processed = await runMiddleware(draft);
+  if (!processed) return; // middleware blocked
+  // ─────────────────────────────────────────────────────────────────
 
   inp.value = ''; inp.style.height = '';
   document.getElementById('send-btn').disabled = true;
-  renderMessages();
+
+  const ts = firebase.firestore.FieldValue.serverTimestamp();
+  const batch = db.batch();
+
+  // Add message
+  const msgRef = db.collection('groups').doc(S.openGroupId)
+                   .collection('messages').doc();
+  batch.set(msgRef, {
+    userId:    processed.userId,
+    username:  processed.username,
+    text:      processed.text,
+    createdAt: ts,
+  });
+
+  // Update group preview
+  const groupRef = db.collection('groups').doc(S.openGroupId);
+  batch.update(groupRef, {
+    lastMessageAt:      ts,
+    lastMessagePreview: processed.text.slice(0, 80),
+    lastMessageSender:  processed.username,
+  });
+
+  await batch.commit().catch(e => console.error('Send error', e));
 }
 
-// Placeholder middleware pipeline
-function runMiddleware(draft) {
+// ── Middleware pipeline — plug AI keyboard or filters in here ──
+async function runMiddleware(draft) {
   const middlewares = [
-    // async-ready: future AI keyboard sits here
-    // e.g. (d) => { d.text = aiKeyboard.analyze(d.text); return d; }
+    // Example: text trimming (always runs)
+    async (d) => ({ ...d, text: d.text.trim() }),
+
+    // Future AI keyboard middleware:
+    // async (d) => {
+    //   const analysis = await aiKeyboard.analyze(d.text);
+    //   if (analysis.blocked) return null;
+    //   return { ...d, text: analysis.processedText };
+    // },
   ];
-  return middlewares.reduce((d, fn) => d ? fn(d) : null, draft);
+  let current = draft;
+  for (const mw of middlewares) {
+    if (!current) return null;
+    current = await mw(current);
+  }
+  return current;
 }
 
+/* ═══════════════════════════════════════════════
+   DELETE MESSAGE
+═══════════════════════════════════════════════ */
+async function deleteMessage(groupId, msgId) {
+  try {
+    await db.collection('groups').doc(groupId)
+            .collection('messages').doc(msgId).delete();
+    // onSnapshot auto-refreshes the UI
+  } catch (e) {
+    console.error('Delete error', e);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   INPUT HELPERS
+═══════════════════════════════════════════════ */
 function handleMsgKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
-
 function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
@@ -417,97 +679,99 @@ function autoResize(el) {
    CREATE GROUP MODAL
 ═══════════════════════════════════════════════ */
 function openModal() {
-  // Build emoji grid
-  const eg = document.getElementById('emoji-grid');
-  eg.innerHTML = EMOJIS.map(e =>
-    `<button class="emoji-btn${State.newGroup.emoji===e?' selected':''}" onclick="selectEmoji('${e}')">${e}</button>`
+  // Build pickers
+  document.getElementById('emoji-grid').innerHTML = EMOJIS.map(e =>
+    `<button class="emoji-btn${S.newGroup.emoji===e?' selected':''}" onclick="selectEmoji('${e}')">${e}</button>`
   ).join('');
-
-  // Build color grid
-  const cg = document.getElementById('color-grid');
-  cg.innerHTML = COLORS.map(c =>
-    `<div class="color-swatch${State.newGroup.color===c?' selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`
+  document.getElementById('color-grid').innerHTML = COLORS.map(c =>
+    `<div class="color-swatch${S.newGroup.color===c?' selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`
   ).join('');
-
-  // Reset form
   document.getElementById('new-group-name').value = '';
   document.getElementById('new-group-desc').value = '';
-  State.newGroup.isPublic = true;
+  S.newGroup.isPublic = true;
   const t = document.getElementById('privacy-toggle');
   t.classList.add('on'); t.classList.remove('off');
   updateToggleLabel();
-
-  document.getElementById('modal-error').classList.remove('show');
+  showError('modal-error', '');
+  setBtn('create-btn','Create Group',false);
   document.getElementById('create-modal').classList.add('open');
 }
 
 function handleOverlayClick(e) {
-  if (e.target === document.getElementById('create-modal')) closeModal();
+  if (e.target===document.getElementById('create-modal')) closeModal();
 }
 function closeModal() { document.getElementById('create-modal').classList.remove('open'); }
 
 function selectEmoji(e) {
-  State.newGroup.emoji = e;
+  S.newGroup.emoji = e;
   document.querySelectorAll('.emoji-btn').forEach(b => b.classList.toggle('selected', b.textContent===e));
 }
 function selectColor(c) {
-  State.newGroup.color = c;
-  document.querySelectorAll('.color-swatch').forEach(s => s.classList.toggle('selected', s.style.background===c || s.style.backgroundColor===c));
+  S.newGroup.color = c;
+  document.querySelectorAll('.color-swatch').forEach(s => {
+    const bg = s.style.backgroundColor || s.style.background;
+    s.classList.toggle('selected', s.style.background===c);
+  });
 }
-
 function togglePrivacy() {
-  State.newGroup.isPublic = !State.newGroup.isPublic;
-  const t = document.getElementById('privacy-toggle');
-  t.classList.toggle('on', State.newGroup.isPublic);
-  t.classList.toggle('off', !State.newGroup.isPublic);
+  S.newGroup.isPublic = !S.newGroup.isPublic;
+  document.getElementById('privacy-toggle').classList.toggle('on',  S.newGroup.isPublic);
+  document.getElementById('privacy-toggle').classList.toggle('off', !S.newGroup.isPublic);
   updateToggleLabel();
 }
 function updateToggleLabel() {
-  document.getElementById('toggle-label').textContent = State.newGroup.isPublic ? 'Public Group' : 'Private Group';
-  document.getElementById('toggle-desc').textContent  = State.newGroup.isPublic ? 'Anyone can search & join' : 'Invite-only access';
+  document.getElementById('toggle-label').textContent = S.newGroup.isPublic ? 'Public Group' : 'Private Group';
+  document.getElementById('toggle-desc').textContent  = S.newGroup.isPublic ? 'Anyone can search & join' : 'Invite-only access';
 }
 
-function createGroup() {
+async function createGroup() {
   const name = document.getElementById('new-group-name').value.trim();
   const desc = document.getElementById('new-group-desc').value.trim();
-  const errEl = document.getElementById('modal-error');
+  if (!name)         return showError('modal-error','Group name is required');
+  if (name.length<3) return showError('modal-error','Name must be 3+ characters');
 
-  if (!name) { errEl.textContent='Group name is required'; errEl.classList.add('show'); return; }
-  if (name.length < 3) { errEl.textContent='Name must be 3+ characters'; errEl.classList.add('show'); return; }
+  setBtn('create-btn','Creating…',true);
+  showError('modal-error','');
 
-  const newG = {
-    id: uid(),
-    name, description: desc,
-    isPublic: State.newGroup.isPublic,
-    color: State.newGroup.color,
-    emoji: State.newGroup.emoji,
-    creatorId: State.currentUser.id,
-    memberIds: [State.currentUser.id],
-    createdAt: Date.now(),
-  };
-  State.groups.push(newG);
-  State.messages[newG.id] = [];
-  closeModal();
-  renderChats();
-  switchTab('chats');
+  try {
+    const groupData = {
+      name, description: desc,
+      isPublic:   S.newGroup.isPublic,
+      color:      S.newGroup.color,
+      emoji:      S.newGroup.emoji,
+      creatorId:  S.user.uid,
+      creatorUsername: S.profile.username,
+      memberIds:  [S.user.uid],
+      memberCount: 1,
+      createdAt:  firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessageAt:      firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessagePreview: '',
+      lastMessageSender:  '',
+    };
+
+    const ref = await db.collection('groups').add(groupData);
+
+    // Update user's groupIds
+    await db.collection('users').doc(S.user.uid).update({
+      groupIds: firebase.firestore.FieldValue.arrayUnion(ref.id),
+    });
+
+    closeModal();
+    switchTab('chats');
+    // Live listener will pick up the new group automatically
+  } catch (e) {
+    console.error('Create group error', e);
+    showError('modal-error', 'Failed to create group. Try again.');
+    setBtn('create-btn','Create Group',false);
+  }
 }
 
 /* ═══════════════════════════════════════════════
-   ENTER KEY ON AUTH
+   KEYBOARD SHORTCUT (Enter to auth)
 ═══════════════════════════════════════════════ */
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    if (document.getElementById('auth-view').style.display !== 'none' &&
-        document.activeElement?.classList?.contains('form-input')) {
-      handleAuth();
-    }
+  if (e.key==='Enter' && document.activeElement?.classList?.contains('form-input')) {
+    handleAuth();
   }
 });
 
-/* ═══════════════════════════════════════════════
-   INIT
-═══════════════════════════════════════════════ */
-// Hide main app initially (auth shows by default via HTML)
-document.getElementById('main-app').style.display = 'none';
-// Show create btn by default
-document.getElementById('create-group-btn').style.display = 'flex';
