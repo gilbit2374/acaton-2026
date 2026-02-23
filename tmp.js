@@ -1,14 +1,4 @@
-/* ═══════════════════════════════════════════════
-   STATE
-═══════════════════════════════════════════════ */
-let classifier;
-const State = {
-  currentUser: null,
-  authMode: 'login',       // 'login' | 'register'
-  activeTab: 'chats',
-  openGroupId: null,
-  searchFilter: 'all',
-  newGroup: { isPublic: true, color: '#D91C1C', emoji: '💬' },
+
 /* ═══════════════════════════════════════════════════════════════════
    ███████╗██╗██████╗ ███████╗██████╗  █████╗ ███████╗███████╗
    ██╔════╝██║██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝
@@ -611,199 +601,184 @@ function renderMessages(msgs, groupId) {
   list.innerHTML = html;
   if (wasAtBottom || true) list.scrollTop = list.scrollHeight;
 }
-
 /* ═══════════════════════════════════════════════
-   SEND MESSAGE
+   MESSAGE LOGIC (מתוקן)
 ═══════════════════════════════════════════════ */
+4 hours ago
+split the html to html css and js
+
+1 hour ago
+הוספתי ai
 async function sendMessage() {
-  const inp  = document.getElementById('msg-input');
+4 hours ago
+split the html to html css and js
+  const inp = document.getElementById('msg-input');
+1 hour ago
+הוספתי ai
+  const sendBtn = document.getElementById('send-btn');
+4 hours ago
+split the html to html css and js
   const text = inp.value.trim();
-  if (!text || !S.openGroupId || !S.user) return;
+1 hour ago
+הוספתי ai
 
-  // ── Middleware pipeline (AI keyboard plugs in here) ──────────────
-  const draft = {
-    text,
-    userId:   S.user.uid,
-    username: S.profile.username,
-  };
-  const processed = await runMiddleware(draft);
-  if (!processed) return; // middleware blocked
-  // ─────────────────────────────────────────────────────────────────
+4 hours ago
+split the html to html css and js
+  if (!text || !State.openGroupId || !State.currentUser) return;
 
-  inp.value = ''; inp.style.height = '';
-  document.getElementById('send-btn').disabled = true;
+1 hour ago
+הוספתי ai
+  inp.disabled = true;
+  sendBtn.disabled = true;
 
-  const ts = firebase.firestore.FieldValue.serverTimestamp();
-  const batch = db.batch();
+4 hours ago
+split the html to html css and js
+  const draft = { text, userId: State.currentUser.id, username: State.currentUser.username };
 
-  // Add message
-  const msgRef = db.collection('groups').doc(S.openGroupId)
-                   .collection('messages').doc();
-  batch.set(msgRef, {
-    userId:    processed.userId,
-    username:  processed.username,
-    text:      processed.text,
-    createdAt: ts,
-  });
-
-  // Update group preview
-  const groupRef = db.collection('groups').doc(S.openGroupId);
-  batch.update(groupRef, {
-    lastMessageAt:      ts,
-    lastMessagePreview: processed.text.slice(0, 80),
-    lastMessageSender:  processed.username,
-  });
-
-  await batch.commit().catch(e => console.error('Send error', e));
-}
-
-// ── Middleware pipeline — plug AI keyboard or filters in here ──
-async function runMiddleware(draft) {
-  const middlewares = [
-    // Example: text trimming (always runs)
-    async (d) => ({ ...d, text: d.text.trim() }),
-
-    // Future AI keyboard middleware:
-    // async (d) => {
-    //   const analysis = await aiKeyboard.analyze(d.text);
-    //   if (analysis.blocked) return null;
-    //   return { ...d, text: analysis.processedText };
-    // },
-  ];
-  let current = draft;
-  for (const mw of middlewares) {
-    if (!current) return null;
-    current = await mw(current);
-  }
-  return current;
-}
-
-/* ═══════════════════════════════════════════════
-   DELETE MESSAGE
-═══════════════════════════════════════════════ */
-async function deleteMessage(groupId, msgId) {
+1 hour ago
+הוספתי ai
   try {
-    await db.collection('groups').doc(groupId)
-            .collection('messages').doc(msgId).delete();
-    // onSnapshot auto-refreshes the UI
-  } catch (e) {
-    console.error('Delete error', e);
+    const processed = await runMiddleware(draft);
+    inp.disabled = false;
+    inp.focus();
+4 hours ago
+split the html to html css and js
+
+1 hour ago
+הוספתי ai
+    if (!processed) {
+      sendBtn.disabled = false;
+      return;
+    }
+4 hours ago
+split the html to html css and js
+
+1 hour ago
+הוספתי ai
+    const msg = { id: uid(), groupId: State.openGroupId, ...processed, ts: Date.now() };
+    if (!State.messages[State.openGroupId]) State.messages[State.openGroupId] = [];
+    State.messages[State.openGroupId].push(msg);
+
+    inp.value = '';
+    inp.style.height = '';
+    renderMessages();
+  } catch (err) {
+    console.error("Error sending message:", err);
+    inp.disabled = false;
+    sendBtn.disabled = false;
   }
+4 hours ago
+split the html to html css and js
 }
 
-/* ═══════════════════════════════════════════════
-   INPUT HELPERS
-═══════════════════════════════════════════════ */
-function handleMsgKey(e) {
-  if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+1 hour ago
+הוספתי ai
+async function runMiddleware(draft) {
+  if (!classifier) {
+    console.warn("AI not ready yet.");
+    return draft;
+  }
+
+  const analysis = await analyzeMessage(draft.text);
+  const label = String(analysis.label).toUpperCase();
+  const score = analysis.score;
+
+  // בדיקה אם ההודעה רעילה (LABEL_0 מוגדר כעת כרעיל ב-loadModel)
+  if (label === 'LABEL_0' && score > 0.7) {
+    console.log("🚫 Toxicity detected, censoring message...");
+    draft.text = "🚫 הודעה זו נחסמה על ידי מערכת הניטור (תוכן לא הולם)";
+    draft.isBlocked = true;
+  }
+
+  return draft;
+4 hours ago
+split the html to html css and js
 }
-function autoResize(el) {
+
+1 hour ago
+הוספתי ai
+// פתרון לשגיאת ה-ReferenceError: מחברים את הפונקציות ל-window
+window.handleMsgKey = function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+};
+
+window.autoResize = function(el) {
+4 hours ago
+split the html to html css and js
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   document.getElementById('send-btn').disabled = !el.value.trim();
-}
+1 hour ago
+הוספתי ai
+};
+4 hours ago
+split the html to html css and js
 
 /* ═══════════════════════════════════════════════
-   CREATE GROUP MODAL
+1 hour ago
+הוספתי ai
+   INIT & AI LOADING (מתוקן עם תיקון היפוך)
+4 hours ago
+split the html to html css and js
 ═══════════════════════════════════════════════ */
-function openModal() {
-  // Build pickers
-  document.getElementById('emoji-grid').innerHTML = EMOJIS.map(e =>
-    `<button class="emoji-btn${S.newGroup.emoji===e?' selected':''}" onclick="selectEmoji('${e}')">${e}</button>`
-  ).join('');
-  document.getElementById('color-grid').innerHTML = COLORS.map(c =>
-    `<div class="color-swatch${S.newGroup.color===c?' selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`
-  ).join('');
-  document.getElementById('new-group-name').value = '';
-  document.getElementById('new-group-desc').value = '';
-  S.newGroup.isPublic = true;
-  const t = document.getElementById('privacy-toggle');
-  t.classList.add('on'); t.classList.remove('off');
-  updateToggleLabel();
-  showError('modal-error', '');
-  setBtn('create-btn','Create Group',false);
-  document.getElementById('create-modal').classList.add('open');
-}
 
-function handleOverlayClick(e) {
-  if (e.target===document.getElementById('create-modal')) closeModal();
-}
-function closeModal() { document.getElementById('create-modal').classList.remove('open'); }
-
-function selectEmoji(e) {
-  S.newGroup.emoji = e;
-  document.querySelectorAll('.emoji-btn').forEach(b => b.classList.toggle('selected', b.textContent===e));
-}
-function selectColor(c) {
-  S.newGroup.color = c;
-  document.querySelectorAll('.color-swatch').forEach(s => {
-    const bg = s.style.backgroundColor || s.style.background;
-    s.classList.toggle('selected', s.style.background===c);
-  });
-}
-function togglePrivacy() {
-  S.newGroup.isPublic = !S.newGroup.isPublic;
-  document.getElementById('privacy-toggle').classList.toggle('on',  S.newGroup.isPublic);
-  document.getElementById('privacy-toggle').classList.toggle('off', !S.newGroup.isPublic);
-  updateToggleLabel();
-}
-function updateToggleLabel() {
-  document.getElementById('toggle-label').textContent = S.newGroup.isPublic ? 'Public Group' : 'Private Group';
-  document.getElementById('toggle-desc').textContent  = S.newGroup.isPublic ? 'Anyone can search & join' : 'Invite-only access';
-}
-
-async function createGroup() {
-  const name = document.getElementById('new-group-name').value.trim();
-  const desc = document.getElementById('new-group-desc').value.trim();
-  if (!name)         return showError('modal-error','Group name is required');
-  if (name.length<3) return showError('modal-error','Name must be 3+ characters');
-
-  setBtn('create-btn','Creating…',true);
-  showError('modal-error','');
-
+1 hour ago
+הוספתי ai
+async function loadModel() {
   try {
-    const groupData = {
-      name, description: desc,
-      isPublic:   S.newGroup.isPublic,
-      color:      S.newGroup.color,
-      emoji:      S.newGroup.emoji,
-      creatorId:  S.user.uid,
-      creatorUsername: S.profile.username,
-      memberIds:  [S.user.uid],
-      memberCount: 1,
-      createdAt:  firebase.firestore.FieldValue.serverTimestamp(),
-      lastMessageAt:      firebase.firestore.FieldValue.serverTimestamp(),
-      lastMessagePreview: '',
-      lastMessageSender:  '',
-    };
+    console.log("Loading AI using quantized model file...");
 
-    const ref = await db.collection('groups').add(groupData);
+    window.env.localModelPath = './';
+    window.env.allowRemoteModels = false;
 
-    // Update user's groupIds
-    await db.collection('users').doc(S.user.uid).update({
-      groupIds: firebase.firestore.FieldValue.arrayUnion(ref.id),
+    classifier = await window.pipeline('text-classification', 'model_web', {
+      local_files_only: true,
+      model_file_name: 'model_quantized',
+      quantized: false,
+      config: {
+        model_type: 'bert',
+        id2label: {
+          0: 'LABEL_1', // Neutral/Safe
+          1: 'LABEL_0'  // Toxic/Negative (זה מה שה-Middleware מחפש)
+        }
+      }
     });
 
-    closeModal();
-    switchTab('chats');
-    // Live listener will pick up the new group automatically
+    console.log("✅ AI is live, offline, and the labels are correctly mapped!");
   } catch (e) {
-    console.error('Create group error', e);
-    showError('modal-error', 'Failed to create group. Try again.');
-    setBtn('create-btn','Create Group',false);
+    console.error("❌ Model load failed.", e);
   }
+4 hours ago
+split the html to html css and js
 }
 
-/* ═══════════════════════════════════════════════
-   KEYBOARD SHORTCUT (Enter to auth)
-═══════════════════════════════════════════════ */
-document.addEventListener('keydown', e => {
-  if (e.key==='Enter' && document.activeElement?.classList?.contains('form-input')) {
-    handleAuth();
-  }
-}
+1 hour ago
+הוספתי ai
+async function analyzeMessage(text) {
+  if (!classifier) return { label: 'LABEL_1', score: 0 };
+  try {
+    const cleanText = String(text).trim();
+    if (!cleanText) return { label: 'LABEL_1', score: 0 };
 
+    const result = await classifier(cleanText);
+    return Array.isArray(result) ? result[0] : result;
+  } catch (err) {
+    console.error("Analysis failed:", err);
+    return { label: 'LABEL_1', score: 0 };
+4 hours ago
+split the html to html css and js
+  }
+1 hour ago
+הוספתי ai
+}
+4 hours ago
+split the html to html css and js
+
+1 hour ago
+הוספתי ai
 // חשיפת loadModel לשימוש חיצוני
 window.loadModel = loadModel;
 window.sendMessage = sendMessage;
-});
