@@ -260,14 +260,14 @@
   </div>
 
 </div><!-- #app -->
-<script>
-  // פונקציית העזר להפעלת המודל (חובה שתהיה כאן או בראש scripts.js)
-  window.runClassifier = async function(task, modelPath) {
-    const pipe = await window.pipeline(task, modelPath);
-    return async (text) => {
-      return await pipe(text);
-    };
-  };
+  <!-- // פונקציית העזר להפעלת המודל (חובה שתהיה כאן או בראש scripts.js) -->
+  <!-- // window.runClassifier = async function(task, modelPath) { -->
+  <!-- //   const pipe = await window.pipeline(task, modelPath); -->
+  <!-- //   return async (text) => { -->
+  <!-- //     return await pipe(text); -->
+  <!-- //   }; -->
+  <!-- // }; -->
+
     <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore-compat.js"></script>
