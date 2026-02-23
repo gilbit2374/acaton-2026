@@ -2,13 +2,7 @@
    STATE
 ═══════════════════════════════════════════════ */
 let classifier;
-const State = {
-  currentUser: null,
-  authMode: 'login',       // 'login' | 'register'
-  activeTab: 'chats',
-  openGroupId: null,
-  searchFilter: 'all',
-  newGroup: { isPublic: true, color: '#D91C1C', emoji: '💬' },
+// (State is managed by the `S` object below)
 /* ═══════════════════════════════════════════════════════════════════
    ███████╗██╗██████╗ ███████╗██████╗  █████╗ ███████╗███████╗
    ██╔════╝██║██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝
@@ -801,9 +795,4 @@ document.addEventListener('keydown', e => {
   if (e.key==='Enter' && document.activeElement?.classList?.contains('form-input')) {
     handleAuth();
   }
-}
-
-// חשיפת loadModel לשימוש חיצוני
-window.loadModel = loadModel;
-window.sendMessage = sendMessage;
 });
