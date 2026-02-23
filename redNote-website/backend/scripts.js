@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════ */
+let classifier;
 const State = {
   currentUser: null,
   authMode: 'login',       // 'login' | 'register'
