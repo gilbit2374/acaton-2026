@@ -157,7 +157,6 @@ function hideLoading() {
     const el = document.getElementById('loading-overlay');
     if (el) el.remove();
   }, 500);
-}
 
 function showAuthScreen() {
   document.getElementById('auth-view').style.display = 'flex';
@@ -792,3 +791,4 @@ document.addEventListener('keydown', e => {
     handleAuth();
   }
 });
+
