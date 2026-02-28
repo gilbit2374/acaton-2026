@@ -479,9 +479,14 @@ async function joinGroup(groupId) {
 function renderProfile() {
   const n   = S.myGroupsData.length;
   const mod = S.myGroupsData.filter(g => g.creatorId === S.user?.uid).length;
-  document.getElementById('profile-group-desc').textContent = n + ' groups joined';
-  document.getElementById('profile-group-count').textContent = n;
-  document.getElementById('profile-mod-desc').textContent = mod + ' group' + (mod!==1?'s':'') + ' created';
+
+  const descEl = document.getElementById('profile-group-desc');
+  const countEl = document.getElementById('profile-group-count');
+  const modEl = document.getElementById('profile-mod-desc');
+
+  if (descEl) descEl.textContent = n + ' groups joined';
+  if (countEl) countEl.textContent = n;
+  if (modEl) modEl.textContent = mod + ' group' + (mod!==1?'s':'') + ' created';
 }
 
 /* ═══════════════════════════════════════════════
@@ -614,33 +619,34 @@ async function sendMessage() {
   const text = inp.value.trim();
   if (!text || !S.openGroupId || !S.user) return;
 
-  // ── Middleware pipeline (AI keyboard plugs in here) ──────────────
-  const draft = {
-    text,
-    userId:   S.user.uid,
+  let draft = {
+    text: text,
+    userId: S.user.uid,
     username: S.profile.username,
   };
-  const processed = await runMiddleware(draft);
-  if (!processed) return; // middleware blocked
-  // ─────────────────────────────────────────────────────────────────
 
-  inp.value = ''; inp.style.height = '';
+  // ה-Middleware מחליף את הטקסט אם הוא פוגעני
+  const processed = await runMiddleware(draft);
+
+  // מנקים את שדה הקלט מיד אחרי הלחיצה
+  inp.value = '';
+  inp.style.height = '';
   document.getElementById('send-btn').disabled = true;
 
   const ts = firebase.firestore.FieldValue.serverTimestamp();
   const batch = db.batch();
 
-  // Add message
-  const msgRef = db.collection('groups').doc(S.openGroupId)
-                   .collection('messages').doc();
+  const msgRef = db.collection('groups').doc(S.openGroupId).collection('messages').doc();
+
+  // שולחים את הטקסט (הוא יהיה או המקורי, או הודעת החסימה)
   batch.set(msgRef, {
     userId:    processed.userId,
     username:  processed.username,
     text:      processed.text,
     createdAt: ts,
+    isSystemBlocked: processed.isSystemCheck || false // אופציונלי: לסימון ב-DB
   });
 
-  // Update group preview
   const groupRef = db.collection('groups').doc(S.openGroupId);
   batch.update(groupRef, {
     lastMessageAt:      ts,
@@ -653,23 +659,49 @@ async function sendMessage() {
 
 // ── Middleware pipeline — plug AI keyboard or filters in here ──
 async function runMiddleware(draft) {
-  const middlewares = [
-    // Example: text trimming (always runs)
-    async (d) => ({ ...d, text: d.text.trim() }),
-
-    // Future AI keyboard middleware:
-    // async (d) => {
-    //   const analysis = await aiKeyboard.analyze(d.text);
-    //   if (analysis.blocked) return null;
-    //   return { ...d, text: analysis.processedText };
-    // },
-  ];
-  let current = draft;
-  for (const mw of middlewares) {
-    if (!current) return null;
-    current = await mw(current);
+  if (!window.classifier) {
+    console.warn("AI המודל עדיין לא נטען");
+    return draft;
   }
-  return current;
+
+  try {
+    // הרצת המודל על הטקסט
+    const results = await window.classifier(draft.text);
+
+    // זה ידפיס לקונסול את המבנה המדויק שהמודל שלך מחזיר
+    console.log("📊 תוצאות מהמודל שלך:", results);
+
+    // לוגיקת זיהוי גמישה:
+    // אנחנו בודקים אם המודל החזיר תוצאה שהתווית שלה היא 'LABEL_1' או 'toxic'
+    // או פשוט אם התוצאה הראשונה היא בעלת ציון גבוה (במודלים של סיווג בינארי)
+
+    let isToxic = false;
+
+    if (results && results.length > 0) {
+      const topResult = results[0];
+
+      // אם המודל שלך מחזיר LABEL_1 כפוגעני
+      if (topResult.label === 'LABEL_1' || topResult.label === 'toxic') {
+        if (topResult.score > 0.5) isToxic = true;
+      }
+      // אם המודל מחזיר רק LABEL_0/1 בלי שמות, נבדוק את הציון
+      else if (topResult.label === 'LABEL_0' && topResult.score < 0.5) {
+        isToxic = true;
+      }
+    }
+
+    if (isToxic) {
+      console.warn("🚫 המודל זיהה תוכן פוגעני!");
+      draft.text = "🚫 הודעה זו נחסמה על ידי ה-AI המקומי.";
+      draft.isSystemBlocked = true;
+    }
+
+  } catch (err) {
+    // התיקון לשגיאת ה-TypeError שקיבלת
+    console.error("שגיאה בניתוח המודל:", err);
+  }
+
+  return draft;
 }
 
 /* ═══════════════════════════════════════════════
