@@ -943,7 +943,7 @@ document.getElementById('message-input')?.addEventListener('input', (e) => {
 // 2. THE API CALL: Bulletproof version
 async function checkGrammar(text) {
   // Replace this with your actual key from console.groq.com
-  const GROQ_API_KEY = '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';
+  const GROQ_API_KEY = 'grock_api_key';
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
   try {
