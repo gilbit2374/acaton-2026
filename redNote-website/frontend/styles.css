@@ -978,3 +978,73 @@ body {
   transition: left 0.22s cubic-bezier(0.34,1.56,0.64,1);
 }
 .toggle-track.on .toggle-knob { left: 25px; }
+
+.suggestion-container {
+  position: absolute;
+  bottom: 100%; /* Sits above the input bar */
+  left: 10px;
+  right: 10px;
+  background: #fff3f3;
+  border: 1px solid #ffcccc;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
+  margin-bottom: 8px;
+  z-index: 10;
+}
+
+.suggestion-container.hidden { display: none; }
+
+.suggestion-content { flex: 1; font-size: 13px; color: #d91c1c; }
+.suggestion-label { font-weight: bold; display: block; }
+
+.btn-apply {
+  background: #d91c1c;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-ignore {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #999;
+  cursor: pointer;
+}
+
+.grammar-check-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.grammar-check-btn:hover {
+  color: var(--red);
+  transform: scale(1.1);
+}
+
+/* Ensure the input bar has enough space for the new button */
+.input-bar {
+  display: flex;
+  align-items: flex-end; /* Keeps button aligned with bottom of text */
+  gap: 8px;
+  padding: 10px 15px;
+  background: white;
+  border-top: 1px solid var(--border);
+  position: relative;
+}
+
+

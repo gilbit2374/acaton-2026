@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════ */
+let currentSuggestion = "";
 let classifier;
 // (State is managed by the `S` object below)
 /* ═══════════════════════════════════════════════════════════════════
@@ -658,6 +659,7 @@ async function sendMessage() {
 }
 
 // ── Middleware pipeline — plug AI keyboard or filters in here ──
+// ── Middleware pipeline — plug AI keyboard or filters in here ──
 async function runMiddleware(draft) {
   if (!window.classifier) {
     console.warn("AI המודל עדיין לא נטען");
@@ -665,40 +667,34 @@ async function runMiddleware(draft) {
   }
 
   try {
-    // הרצת המודל על הטקסט
+    // 1. הרצת המודל על הטקסט (Toxicity Check)
     const results = await window.classifier(draft.text);
-
-    // זה ידפיס לקונסול את המבנה המדויק שהמודל שלך מחזיר
     console.log("📊 תוצאות מהמודל שלך:", results);
-
-    // לוגיקת זיהוי גמישה:
-    // אנחנו בודקים אם המודל החזיר תוצאה שהתווית שלה היא 'LABEL_1' או 'toxic'
-    // או פשוט אם התוצאה הראשונה היא בעלת ציון גבוה (במודלים של סיווג בינארי)
 
     let isToxic = false;
 
     if (results && results.length > 0) {
       const topResult = results[0];
-
-      // אם המודל שלך מחזיר LABEL_1 כפוגעני
       if (topResult.label === 'LABEL_1' || topResult.label === 'toxic') {
         if (topResult.score > 0.5) isToxic = true;
       }
-      // אם המודל מחזיר רק LABEL_0/1 בלי שמות, נבדוק את הציון
       else if (topResult.label === 'LABEL_0' && topResult.score < 0.5) {
         isToxic = true;
       }
     }
 
     if (isToxic) {
+      // 2A. אם זה פוגעני - חסום
       console.warn("🚫 המודל זיהה תוכן פוגעני!");
       draft.text = "🚫 הודעה זו נחסמה על ידי ה-AI המקומי.";
       draft.isSystemBlocked = true;
     }
 
+    // ✨ REMOVED the automatic grammar check override here.
+    // Now, the text will only be changed if the user manually clicks "Apply" in the UI.
+
   } catch (err) {
-    // התיקון לשגיאת ה-TypeError שקיבלת
-    console.error("שגיאה בניתוח המודל:", err);
+    console.error("שגיאה בניתוח המודל או הדקדוק:", err);
   }
 
   return draft;
@@ -723,10 +719,83 @@ async function deleteMessage(groupId, msgId) {
 function handleMsgKey(e) {
   if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
+let lastCheckedText = "";
+let grammarTimer; // Variable to hold the timer //
+// 1. Cleaned up autoResize (No more automatic timer!)
 function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   document.getElementById('send-btn').disabled = !el.value.trim();
+
+  // Hide suggestion box if the user starts changing the text
+  hideSuggestion();
+}
+
+// 2. The NEW Manual Check Function
+let isCheckingGrammar = false; // Prevent double-clicks
+
+async function manualGrammarCheck() {
+    const inp = document.getElementById('msg-input');
+    const text = inp.value.trim();
+    if (!text) return;
+
+    const box = document.getElementById('suggestion-container');
+    const textEl = document.getElementById('suggestion-text');
+
+    textEl.innerText = "Checking... / בודק...";
+    box.classList.remove('hidden');
+
+    const corrected = await checkGrammar(text);
+
+    // Only update if there's actually a correction to show
+    if (corrected && corrected !== text) {
+        currentSuggestion = corrected;
+        const isHebrew = /[\u0590-\u05FF]/.test(corrected);
+        textEl.style.direction = isHebrew ? 'rtl' : 'ltr';
+        textEl.style.textAlign = isHebrew ? 'right' : 'left';
+
+        const label = isHebrew ? 'הצעה לתיקון:' : 'Suggestion:';
+        textEl.innerHTML = `<b>${label}</b> <span style="color:#000">"${corrected}"</span>`;
+    } else {
+        // If it's already perfect, hide the box
+        hideSuggestion();
+    }
+}
+
+async function checkForSuggestions(text) {
+  if (!window.classifier) return;
+
+  const results = await window.classifier(text);
+  const isToxic = results && results[0].label === 'LABEL_1' && results[0].score > 0.5;
+
+  if (isToxic) {
+    const box = document.getElementById('ai-suggestion-box');
+    const textEl = document.getElementById('suggestion-text');
+
+    // Instead of blocking, we suggest a nicer version
+    textEl.textContent = "This message seems a bit harsh. Want to soften it?";
+    box.classList.remove('hidden');
+  } else {
+    hideSuggestion();
+  }
+}
+
+// Ensure this variable is defined at the top of your script
+
+function applySuggestion() {
+  const inp = document.getElementById('msg-input');
+
+  if (currentSuggestion) {
+      inp.value = currentSuggestion;
+  }
+
+  hideSuggestion();
+  autoResize(inp);
+  currentSuggestion = ""; // Clear the memory so it doesn't leak into the next message
+}
+
+function hideSuggestion() {
+  document.getElementById('ai-suggestion-box').classList.add('hidden');
 }
 
 /* ═══════════════════════════════════════════════
@@ -828,3 +897,105 @@ document.addEventListener('keydown', e => {
     handleAuth();
   }
 });
+let isProcessingGrammar = false;
+let grammarTimeout;
+
+// This listener waits for the user to stop typing before calling the API
+document.getElementById('message-input')?.addEventListener('input', (e) => {
+  const text = e.target.value.trim();
+
+  // 1. Clear the previous timer every time the user presses a key
+  clearTimeout(grammarTimeout);
+
+  // 2. If the text is too short, just hide the suggestion box and stop
+  if (text.length < 5) {
+    hideSuggestion();
+    return;
+  }
+
+  // 3. Set a new timer for 1 second (1000ms)
+  grammarTimeout = setTimeout(async () => {
+    if (isProcessingGrammar) return;
+
+    // Show "Checking..." UI feedback
+    const content = document.getElementById('suggestion-text');
+    if (content) content.innerText = "Checking...";
+    document.getElementById('suggestion-container')?.classList.remove('hidden');
+
+    isProcessingGrammar = true;
+    try {
+      const corrected = await checkGrammar(text);
+      if (corrected && corrected.toLowerCase() !== text.toLowerCase()) {
+        currentSuggestion = corrected;
+        if (content) content.innerText = corrected;
+      } else {
+        hideSuggestion();
+      }
+    } catch (error) {
+      console.error("Grammar API error:", error);
+      hideSuggestion();
+    } finally {
+      isProcessingGrammar = false;
+    }
+  }, 1000);
+});
+
+// 2. THE API CALL: Bulletproof version
+async function checkGrammar(text) {
+  // Replace this with your actual key from console.groq.com
+  const GROQ_API_KEY = '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';
+  const url = "https://api.groq.com/openai/v1/chat/completions";
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile", // Or "llama3-8b-8192" for even faster speed
+        messages: [
+          {
+            role: "system",
+            content: "You are a grammar correction tool. Return ONLY the corrected text in Hebrew or English. No explanations, no quotes."
+          },
+          {
+            role: "user",
+            content: text
+          }
+        ],
+        temperature: 0.2 // Keeps the correction predictable
+      })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Groq Error:", errorData);
+        return text;
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content.trim().replace(/^["']|["']$/g, '');
+  } catch (error) {
+    console.error("Fetch Error:", error);
+    return text;
+  }
+}
+
+// 3. UI FUNCTIONS: These handle the buttons
+function applySuggestion() {
+  const input = document.getElementById('msg-input'); // Must match your chat input ID
+  if (input && currentSuggestion) {
+    input.value = currentSuggestion;
+    hideSuggestion();
+    input.focus();
+  }
+}
+
+function hideSuggestion() {
+  const container = document.getElementById('suggestion-container'); // MUST match the ID
+  if (container) {
+    container.classList.add('hidden');
+  }
+}
