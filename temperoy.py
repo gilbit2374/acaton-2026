@@ -3,8 +3,8 @@ from optimum.onnxruntime import ORTModelForSequenceClassification
 from transformers import AutoTokenizer
 
 # הנתיבים שלך
-model_path = r"C:\Users\USER\PycharmProjects\PythonProject9\my_toxic_model"
-output_path = "model_web"
+model_path = r"/my_toxic_model"
+output_path = "redNote-website/frontend/model_web"
 
 print(f"טוען וממיר את המודל מ: {model_path}...")
 
