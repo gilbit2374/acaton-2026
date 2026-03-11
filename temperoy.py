@@ -2,15 +2,13 @@ import os
 from optimum.onnxruntime import ORTModelForSequenceClassification
 from transformers import AutoTokenizer
 
-# הנתיבים שלך
 model_path = r"/my_toxic_model"
 output_path = "redNote-website/frontend/model_web"
 
 print(f"טוען וממיר את המודל מ: {model_path}...")
 
 try:
-    # טעינה וייצוא אוטומטי ל-ONNX בעזרת Optimum
-    # זה פותר את כל בעיות ה-TracerWarning שראית
+
     model = ORTModelForSequenceClassification.from_pretrained(model_path, export=True)
     tokenizer = AutoTokenizer.from_pretrained(model_path)
 

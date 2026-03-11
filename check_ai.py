@@ -14,15 +14,12 @@ while True:
     if user_input.lower() in ['יציאה', 'exit', 'quit']: break
     if not user_input.strip(): continue
 
-    # שימוש ב-top_k=None מחזיר את כל הלייבלים בצורה מסודרת
     results = pipe(user_input, top_k=None)
 
-    # שליפת הציונים בצורה בטוחה
     scores = {res['label']: res['score'] for res in results}
     toxic_score = scores.get('LABEL_1', 0)
     clean_score = scores.get('LABEL_0', 0)
 
-    # סף רגישות נמוך כדי לתפוס קללות "מוחבאות"
     threshold = 0.15
 
     if toxic_score > threshold:

@@ -30,9 +30,7 @@ const FIREBASE_CONFIG = {
   measurementId:     "G-PDYNYTF1XC"
 };
 
-/* ═══════════════════════════════════════════════
-   INIT + CONFIG CHECK
-═══════════════════════════════════════════════ */
+
 const CONFIG_IS_PLACEHOLDER = FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY';
 
 let app, auth, db;
@@ -44,14 +42,11 @@ if (CONFIG_IS_PLACEHOLDER) {
   app  = firebase.initializeApp(FIREBASE_CONFIG);
   auth = firebase.auth();
   db   = firebase.firestore();
-  // Enable offline persistence
   db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
   initApp();
 }
 
-/* ═══════════════════════════════════════════════
-   APP STATE
-═══════════════════════════════════════════════ */
+
 const S = {
   user:          null,   // Firebase Auth user
   profile:       null,   // Firestore user doc
@@ -64,20 +59,15 @@ const S = {
   newGroup: { isPublic:true, color:'#D91C1C', emoji:'💬' },
 };
 
-// Unsubscribe functions for live listeners
 let unsubMyGroups   = null;
 let unsubPublicGroups = null;
 let unsubMessages   = null;
 
-/* ═══════════════════════════════════════════════
-   CONSTANTS
-═══════════════════════════════════════════════ */
+
 const EMOJIS = ['💬','🚀','🎨','💡','🔥','📈','🤖','🌍','🎯','🛠️','📚','🎮'];
 const COLORS = ['#D91C1C','#0D1B2A','#2563EB','#7C3AED','#059669','#D97706','#DB2777'];
 
-/* ═══════════════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════════════ */
+
 const esc     = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const initial = s => (s||'?').charAt(0).toUpperCase();
 const uid     = () => Math.random().toString(36).slice(2,10);
@@ -119,13 +109,9 @@ function skeletonHTML(n=3) {
     </div>`).join('');
 }
 
-/* ═══════════════════════════════════════════════
-   APP INIT — AUTH STATE OBSERVER
-═══════════════════════════════════════════════ */
 function initApp() {
   auth.onAuthStateChanged(async (firebaseUser) => {
     if (firebaseUser) {
-      // Fetch user profile from Firestore
       try {
         const snap = await db.collection('users').doc(firebaseUser.uid).get();
         S.user    = firebaseUser;
@@ -151,7 +137,7 @@ function initApp() {
 
 function hideLoading() {
   const ol = document.getElementById('loading-overlay');
-  if (!ol) return; // Already removed — safe to ignore
+  if (!ol) return;
   ol.classList.add('hidden');
   setTimeout(() => {
     const el = document.getElementById('loading-overlay');
@@ -171,7 +157,6 @@ function showMainApp() {
   ma.style.flexDirection = 'column';
   ma.style.overflow = 'hidden';
 
-  // Update header + profile
   const p = S.profile;
   document.getElementById('header-avatar').textContent = initial(p.displayName || p.username);
   document.getElementById('profile-big-avatar').textContent = initial(p.displayName || p.username);
@@ -179,7 +164,6 @@ function showMainApp() {
   document.getElementById('profile-uname').textContent = '@' + p.username;
   document.getElementById('profile-email').textContent = p.email;
 
-  // Start live listeners
   startMyGroupsListener();
   startPublicGroupsListener();
   switchTab('chats');
@@ -191,9 +175,7 @@ function teardownListeners() {
   if (unsubMessages)     { unsubMessages();     unsubMessages = null; }
 }
 
-/* ═══════════════════════════════════════════════
-   AUTH — LOGIN / REGISTER
-═══════════════════════════════════════════════ */
+
 let authMode = 'login';
 
 function switchAuthTab(mode) {
@@ -222,30 +204,25 @@ async function handleAuth() {
       if (username.length < 3)       throw new Error('Username must be 3+ characters');
       if (!/^[a-z0-9._]+$/.test(username)) throw new Error('Username: letters, numbers, . and _ only');
 
-      // Step 1: Create Firebase Auth account FIRST (this logs the user in,
-      // which satisfies Firestore security rules for the next queries)
+
       const cred = await auth.createUserWithEmailAndPassword(email, password);
 
       try {
-        // Step 2: Now authenticated — check username uniqueness
+
         const existing = await db.collection('users').where('username','==',username).limit(1).get();
         if (!existing.empty) {
-          // Username taken — delete the auth account we just made and bail
+
           await cred.user.delete();
           throw new Error('Username is already taken — please choose another');
         }
 
-        // Step 3: Username is free — save the profile
         await db.collection('users').doc(cred.user.uid).set({
           uid: cred.user.uid, email, username, displayName,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           groupIds: [],
         });
-        // Auth state observer fires and calls showMainApp()
 
-      } catch (profileErr) {
-        // If profile save failed for any reason, clean up the auth account
-        // so the user isn't stuck with a broken half-created account
+      } catch (profileErr) {t
         if (cred.user && profileErr.message !== 'Username is already taken — please choose another') {
           await cred.user.delete().catch(() => {});
         }
@@ -271,9 +248,7 @@ async function logout() {
   await auth.signOut();
 }
 
-/* ═══════════════════════════════════════════════
-   NAVIGATION
-═══════════════════════════════════════════════ */
+
 function switchTab(tab) {
   S.activeTab = tab;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -284,13 +259,9 @@ function switchTab(tab) {
   if (tab==='search')  renderSearch();
 }
 
-/* ═══════════════════════════════════════════════
-   MY GROUPS — LIVE LISTENER
-═══════════════════════════════════════════════ */
 function startMyGroupsListener() {
   if (unsubMyGroups) unsubMyGroups();
 
-  // Show skeletons while loading
   document.getElementById('chats-list').innerHTML = skeletonHTML();
 
   unsubMyGroups = db.collection('groups')
@@ -315,9 +286,7 @@ function startMyGroupsListener() {
     );
 }
 
-/* ═══════════════════════════════════════════════
-   PUBLIC GROUPS — LIVE LISTENER
-═══════════════════════════════════════════════ */
+
 function startPublicGroupsListener() {
   if (unsubPublicGroups) unsubPublicGroups();
 
@@ -340,9 +309,6 @@ function startPublicGroupsListener() {
     );
 }
 
-/* ═══════════════════════════════════════════════
-   RENDER — CHATS SCREEN
-═══════════════════════════════════════════════ */
 const lockSVG  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 const globeSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
 const usersSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
@@ -385,9 +351,6 @@ function renderChats() {
   }).join('');
 }
 
-/* ═══════════════════════════════════════════════
-   RENDER — DISCOVER / SEARCH SCREEN
-═══════════════════════════════════════════════ */
 let searchFilterState = 'all';
 
 function setFilter(f) {
@@ -458,20 +421,16 @@ async function joinGroup(groupId) {
     await db.collection('groups').doc(groupId).update({
       memberIds: firebase.firestore.FieldValue.arrayUnion(S.user.uid),
     });
-    // Also update user's groupIds
     await db.collection('users').doc(S.user.uid).update({
       groupIds: firebase.firestore.FieldValue.arrayUnion(groupId),
     });
-    // Snapshot listeners will auto-update both screens
   } catch (e) {
     console.error('Join error', e);
     if (btn) { btn.textContent = 'Join'; btn.disabled = false; }
   }
 }
 
-/* ═══════════════════════════════════════════════
-   RENDER — PROFILE SCREEN
-═══════════════════════════════════════════════ */
+
 function renderProfile() {
   const n   = S.myGroupsData.length;
   const mod = S.myGroupsData.filter(g => g.creatorId === S.user?.uid).length;
@@ -480,9 +439,7 @@ function renderProfile() {
   document.getElementById('profile-mod-desc').textContent = mod + ' group' + (mod!==1?'s':'') + ' created';
 }
 
-/* ═══════════════════════════════════════════════
-   CHAT SCREEN — OPEN / CLOSE
-═══════════════════════════════════════════════ */
+
 function openChat(groupId) {
   const g = S.myGroupsData.find(x=>x.id===groupId)
          || S.allPublicGroups.find(x=>x.id===groupId);
@@ -517,16 +474,14 @@ function closeChat() {
   S.openGroupId = null; S.openGroupData = null;
 }
 
-/* ═══════════════════════════════════════════════
-   MESSAGES — REAL-TIME LISTENER (onSnapshot)
-═══════════════════════════════════════════════ */
+
 function startMessagesListener(groupId) {
   if (unsubMessages) unsubMessages();
 
   unsubMessages = db.collection('groups').doc(groupId)
     .collection('messages')
     .orderBy('createdAt', 'asc')
-    .limit(100)          // ← pagination hook: change to startAfter(cursor) for history loading
+    .limit(100)
     .onSnapshot(
       (snap) => {
         const msgs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
@@ -536,9 +491,7 @@ function startMessagesListener(groupId) {
     );
 }
 
-/* ═══════════════════════════════════════════════
-   RENDER — MESSAGES
-═══════════════════════════════════════════════ */
+
 function renderMessages(msgs, groupId) {
   const list  = document.getElementById('messages-list');
   const g     = S.openGroupData;
@@ -601,9 +554,7 @@ function renderMessages(msgs, groupId) {
   list.innerHTML = html;
   if (wasAtBottom || true) list.scrollTop = list.scrollHeight;
 }
-/* ═══════════════════════════════════════════════
-   MESSAGE LOGIC (מתוקן)
-═══════════════════════════════════════════════ */
+
 4 hours ago
 split the html to html css and js
 
@@ -683,7 +634,7 @@ async function runMiddleware(draft) {
   const label = String(analysis.label).toUpperCase();
   const score = analysis.score;
 
-  // בדיקה אם ההודעה רעילה (LABEL_0 מוגדר כעת כרעיל ב-loadModel)
+
   if (label === 'LABEL_0' && score > 0.7) {
     console.log("🚫 Toxicity detected, censoring message...");
     draft.text = "🚫 הודעה זו נחסמה על ידי מערכת הניטור (תוכן לא הולם)";
@@ -697,7 +648,7 @@ split the html to html css and js
 
 1 hour ago
 הוספתי ai
-// פתרון לשגיאת ה-ReferenceError: מחברים את הפונקציות ל-window
+
 window.handleMsgKey = function(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -717,13 +668,7 @@ split the html to html css and js
 4 hours ago
 split the html to html css and js
 
-/* ═══════════════════════════════════════════════
-1 hour ago
-הוספתי ai
-   INIT & AI LOADING (מתוקן עם תיקון היפוך)
-4 hours ago
-split the html to html css and js
-═══════════════════════════════════════════════ */
+
 
 1 hour ago
 הוספתי ai
@@ -741,8 +686,8 @@ async function loadModel() {
       config: {
         model_type: 'bert',
         id2label: {
-          0: 'LABEL_1', // Neutral/Safe
-          1: 'LABEL_0'  // Toxic/Negative (זה מה שה-Middleware מחפש)
+          0: 'LABEL_1',
+          1: 'LABEL_0'
         }
       }
     });
@@ -779,6 +724,5 @@ split the html to html css and js
 
 1 hour ago
 הוספתי ai
-// חשיפת loadModel לשימוש חיצוני
 window.loadModel = loadModel;
 window.sendMessage = sendMessage;

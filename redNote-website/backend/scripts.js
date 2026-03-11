@@ -1,8 +1,8 @@
-/* ═══════════════════════════════════════════════
-   STATE
-═══════════════════════════════════════════════ */
+//state
 let currentSuggestion = "";
 let classifier;
+//i got no idea where aitan got it from but sure
+
 // (State is managed by the `S` object below)
 /* ═══════════════════════════════════════════════════════════════════
    ███████╗██╗██████╗ ███████╗██████╗  █████╗ ███████╗███████╗
@@ -25,6 +25,7 @@ let classifier;
    ▸ STEP 4: Create Firestore composite indexes (auto-prompted on first use,
      or copy from FIREBASE_SETUP.md)
 ═══════════════════════════════════════════════════════════════════ */
+
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyBbC67cQhTG6e6kxnxg37USavBYqAjr1YM",
   authDomain:        "rednote-hackton.firebaseapp.com",
@@ -35,9 +36,7 @@ const FIREBASE_CONFIG = {
   measurementId:     "G-PDYNYTF1XC"
 };
 
-/* ═══════════════════════════════════════════════
-   INIT + CONFIG CHECK
-═══════════════════════════════════════════════ */
+//init + config check
 const CONFIG_IS_PLACEHOLDER = FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY';
 
 let app, auth, db;
@@ -54,18 +53,16 @@ if (CONFIG_IS_PLACEHOLDER) {
   initApp();
 }
 
-/* ═══════════════════════════════════════════════
-   APP STATE
-═══════════════════════════════════════════════ */
+//app state
 const S = {
-  user:          null,   // Firebase Auth user
-  profile:       null,   // Firestore user doc
+  user:          null,
+  profile:       null,
   activeTab:     'chats',
   openGroupId:   null,
   openGroupData: null,
   searchFilter:  'all',
-  allPublicGroups: [],   // cached for search filtering
-  myGroupsData:  [],     // live from onSnapshot
+  allPublicGroups: [],
+  myGroupsData:  [],
   newGroup: { isPublic:true, color:'#D91C1C', emoji:'💬' },
 };
 
@@ -74,15 +71,10 @@ let unsubMyGroups   = null;
 let unsubPublicGroups = null;
 let unsubMessages   = null;
 
-/* ═══════════════════════════════════════════════
-   CONSTANTS
-═══════════════════════════════════════════════ */
+//constants
 const EMOJIS = ['💬','🚀','🎨','💡','🔥','📈','🤖','🌍','🎯','🛠️','📚','🎮'];
 const COLORS = ['#D91C1C','#0D1B2A','#2563EB','#7C3AED','#059669','#D97706','#DB2777'];
 
-/* ═══════════════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════════════ */
 const esc     = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const initial = s => (s||'?').charAt(0).toUpperCase();
 const uid     = () => Math.random().toString(36).slice(2,10);
@@ -124,13 +116,9 @@ function skeletonHTML(n=3) {
     </div>`).join('');
 }
 
-/* ═══════════════════════════════════════════════
-   APP INIT — AUTH STATE OBSERVER
-═══════════════════════════════════════════════ */
 function initApp() {
   auth.onAuthStateChanged(async (firebaseUser) => {
     if (firebaseUser) {
-      // Fetch user profile from Firestore
       try {
         const snap = await db.collection('users').doc(firebaseUser.uid).get();
         S.user    = firebaseUser;
@@ -156,7 +144,7 @@ function initApp() {
 
 function hideLoading() {
   const ol = document.getElementById('loading-overlay');
-  if (!ol) return; // Already removed — safe to ignore
+  if (!ol) return;
   ol.classList.add('hidden');
   setTimeout(() => {
     const el = document.getElementById('loading-overlay');
@@ -196,9 +184,7 @@ function teardownListeners() {
   if (unsubMessages)     { unsubMessages();     unsubMessages = null; }
 }
 
-/* ═══════════════════════════════════════════════
-   AUTH — LOGIN / REGISTER
-═══════════════════════════════════════════════ */
+//login
 let authMode = 'login';
 
 function switchAuthTab(mode) {
@@ -227,26 +213,24 @@ async function handleAuth() {
       if (username.length < 3)       throw new Error('Username must be 3+ characters');
       if (!/^[a-z0-9._]+$/.test(username)) throw new Error('Username: letters, numbers, . and _ only');
 
-      // Step 1: Create Firebase Auth account FIRST (this logs the user in,
-      // which satisfies Firestore security rules for the next queries)
+      //Create Firebase Auth account FIRST
       const cred = await auth.createUserWithEmailAndPassword(email, password);
 
       try {
-        // Step 2: Now authenticated — check username uniqueness
+        //check username uniqueness
         const existing = await db.collection('users').where('username','==',username).limit(1).get();
         if (!existing.empty) {
-          // Username taken — delete the auth account we just made and bail
+          // Username taken
           await cred.user.delete();
           throw new Error('Username is already taken — please choose another');
         }
 
-        // Step 3: Username is free — save the profile
+        //save the profile
         await db.collection('users').doc(cred.user.uid).set({
           uid: cred.user.uid, email, username, displayName,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           groupIds: [],
         });
-        // Auth state observer fires and calls showMainApp()
 
       } catch (profileErr) {
         // If profile save failed for any reason, clean up the auth account
@@ -276,9 +260,7 @@ async function logout() {
   await auth.signOut();
 }
 
-/* ═══════════════════════════════════════════════
-   NAVIGATION
-═══════════════════════════════════════════════ */
+//Navigation
 function switchTab(tab) {
   S.activeTab = tab;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -289,13 +271,9 @@ function switchTab(tab) {
   if (tab==='search')  renderSearch();
 }
 
-/* ═══════════════════════════════════════════════
-   MY GROUPS — LIVE LISTENER
-═══════════════════════════════════════════════ */
 function startMyGroupsListener() {
   if (unsubMyGroups) unsubMyGroups();
 
-  // Show skeletons while loading
   document.getElementById('chats-list').innerHTML = skeletonHTML();
 
   unsubMyGroups = db.collection('groups')
@@ -320,9 +298,6 @@ function startMyGroupsListener() {
     );
 }
 
-/* ═══════════════════════════════════════════════
-   PUBLIC GROUPS — LIVE LISTENER
-═══════════════════════════════════════════════ */
 function startPublicGroupsListener() {
   if (unsubPublicGroups) unsubPublicGroups();
 
@@ -345,9 +320,6 @@ function startPublicGroupsListener() {
     );
 }
 
-/* ═══════════════════════════════════════════════
-   RENDER — CHATS SCREEN
-═══════════════════════════════════════════════ */
 const lockSVG  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 const globeSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
 const usersSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
@@ -390,9 +362,6 @@ function renderChats() {
   }).join('');
 }
 
-/* ═══════════════════════════════════════════════
-   RENDER — DISCOVER / SEARCH SCREEN
-═══════════════════════════════════════════════ */
 let searchFilterState = 'all';
 
 function setFilter(f) {
@@ -463,20 +432,17 @@ async function joinGroup(groupId) {
     await db.collection('groups').doc(groupId).update({
       memberIds: firebase.firestore.FieldValue.arrayUnion(S.user.uid),
     });
-    // Also update user's groupIds
+    //Also update user's groupIds
     await db.collection('users').doc(S.user.uid).update({
       groupIds: firebase.firestore.FieldValue.arrayUnion(groupId),
     });
-    // Snapshot listeners will auto-update both screens
+    //auto-update both screens
   } catch (e) {
     console.error('Join error', e);
     if (btn) { btn.textContent = 'Join'; btn.disabled = false; }
   }
 }
 
-/* ═══════════════════════════════════════════════
-   RENDER — PROFILE SCREEN
-═══════════════════════════════════════════════ */
 function renderProfile() {
   const n   = S.myGroupsData.length;
   const mod = S.myGroupsData.filter(g => g.creatorId === S.user?.uid).length;
@@ -490,9 +456,6 @@ function renderProfile() {
   if (modEl) modEl.textContent = mod + ' group' + (mod!==1?'s':'') + ' created';
 }
 
-/* ═══════════════════════════════════════════════
-   CHAT SCREEN — OPEN / CLOSE
-═══════════════════════════════════════════════ */
 function openChat(groupId) {
   const g = S.myGroupsData.find(x=>x.id===groupId)
          || S.allPublicGroups.find(x=>x.id===groupId);
@@ -527,16 +490,13 @@ function closeChat() {
   S.openGroupId = null; S.openGroupData = null;
 }
 
-/* ═══════════════════════════════════════════════
-   MESSAGES — REAL-TIME LISTENER (onSnapshot)
-═══════════════════════════════════════════════ */
 function startMessagesListener(groupId) {
   if (unsubMessages) unsubMessages();
 
   unsubMessages = db.collection('groups').doc(groupId)
     .collection('messages')
     .orderBy('createdAt', 'asc')
-    .limit(100)          // ← pagination hook: change to startAfter(cursor) for history loading
+    .limit(100)          //change to cursor for history loading
     .onSnapshot(
       (snap) => {
         const msgs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
@@ -546,9 +506,7 @@ function startMessagesListener(groupId) {
     );
 }
 
-/* ═══════════════════════════════════════════════
-   RENDER — MESSAGES
-═══════════════════════════════════════════════ */
+
 function renderMessages(msgs, groupId) {
   const list  = document.getElementById('messages-list');
   const g     = S.openGroupData;
@@ -612,9 +570,7 @@ function renderMessages(msgs, groupId) {
   if (wasAtBottom || true) list.scrollTop = list.scrollHeight;
 }
 
-/* ═══════════════════════════════════════════════
-   SEND MESSAGE
-═══════════════════════════════════════════════ */
+
 async function sendMessage() {
   const inp  = document.getElementById('msg-input');
   const text = inp.value.trim();
@@ -626,10 +582,10 @@ async function sendMessage() {
     username: S.profile.username,
   };
 
-  // ה-Middleware מחליף את הטקסט אם הוא פוגעני
+
   const processed = await runMiddleware(draft);
 
-  // מנקים את שדה הקלט מיד אחרי הלחיצה
+
   inp.value = '';
   inp.style.height = '';
   document.getElementById('send-btn').disabled = true;
@@ -639,13 +595,12 @@ async function sendMessage() {
 
   const msgRef = db.collection('groups').doc(S.openGroupId).collection('messages').doc();
 
-  // שולחים את הטקסט (הוא יהיה או המקורי, או הודעת החסימה)
   batch.set(msgRef, {
     userId:    processed.userId,
     username:  processed.username,
     text:      processed.text,
     createdAt: ts,
-    isSystemBlocked: processed.isSystemCheck || false // אופציונלי: לסימון ב-DB
+    isSystemBlocked: processed.isSystemCheck || false
   });
 
   const groupRef = db.collection('groups').doc(S.openGroupId);
@@ -658,8 +613,8 @@ async function sendMessage() {
   await batch.commit().catch(e => console.error('Send error', e));
 }
 
-// ── Middleware pipeline — plug AI keyboard or filters in here ──
-// ── Middleware pipeline — plug AI keyboard or filters in here ──
+
+//Middleware pipeline — AI keyboard and filters
 async function runMiddleware(draft) {
   if (!window.classifier) {
     console.warn("AI המודל עדיין לא נטען");
@@ -690,9 +645,6 @@ async function runMiddleware(draft) {
       draft.isSystemBlocked = true;
     }
 
-    // ✨ REMOVED the automatic grammar check override here.
-    // Now, the text will only be changed if the user manually clicks "Apply" in the UI.
-
   } catch (err) {
     console.error("שגיאה בניתוח המודל או הדקדוק:", err);
   }
@@ -700,9 +652,7 @@ async function runMiddleware(draft) {
   return draft;
 }
 
-/* ═══════════════════════════════════════════════
-   DELETE MESSAGE
-═══════════════════════════════════════════════ */
+
 async function deleteMessage(groupId, msgId) {
   try {
     await db.collection('groups').doc(groupId)
@@ -713,15 +663,11 @@ async function deleteMessage(groupId, msgId) {
   }
 }
 
-/* ═══════════════════════════════════════════════
-   INPUT HELPERS
-═══════════════════════════════════════════════ */
 function handleMsgKey(e) {
   if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
 let lastCheckedText = "";
-let grammarTimer; // Variable to hold the timer //
-// 1. Cleaned up autoResize (No more automatic timer!)
+let grammarTimer; //to hold the timer
 function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
@@ -731,8 +677,7 @@ function autoResize(el) {
   hideSuggestion();
 }
 
-// 2. The NEW Manual Check Function
-let isCheckingGrammar = false; // Prevent double-clicks
+let isCheckingGrammar = false; //Prevent double-clicks
 
 async function manualGrammarCheck() {
     const inp = document.getElementById('msg-input');
@@ -747,7 +692,7 @@ async function manualGrammarCheck() {
 
     const corrected = await checkGrammar(text);
 
-    // Only update if there's actually a correction to show
+    //Only update if there's actually a correction to show
     if (corrected && corrected !== text) {
         currentSuggestion = corrected;
         const isHebrew = /[\u0590-\u05FF]/.test(corrected);
@@ -757,7 +702,7 @@ async function manualGrammarCheck() {
         const label = isHebrew ? 'הצעה לתיקון:' : 'Suggestion:';
         textEl.innerHTML = `<b>${label}</b> <span style="color:#000">"${corrected}"</span>`;
     } else {
-        // If it's already perfect, hide the box
+        //hide the box
         hideSuggestion();
     }
 }
@@ -772,15 +717,13 @@ async function checkForSuggestions(text) {
     const box = document.getElementById('ai-suggestion-box');
     const textEl = document.getElementById('suggestion-text');
 
-    // Instead of blocking, we suggest a nicer version
+    //suggest a nicer version
     textEl.textContent = "This message seems a bit harsh. Want to soften it?";
     box.classList.remove('hidden');
   } else {
     hideSuggestion();
   }
 }
-
-// Ensure this variable is defined at the top of your script
 
 function applySuggestion() {
   const inp = document.getElementById('msg-input');
@@ -791,16 +734,15 @@ function applySuggestion() {
 
   hideSuggestion();
   autoResize(inp);
-  currentSuggestion = ""; // Clear the memory so it doesn't leak into the next message
+  currentSuggestion = ""; //Clear the memory
 }
 
 function hideSuggestion() {
   document.getElementById('ai-suggestion-box').classList.add('hidden');
 }
 
-/* ═══════════════════════════════════════════════
-   CREATE GROUP MODAL
-═══════════════════════════════════════════════ */
+
+//create group modal
 function openModal() {
   // Build pickers
   document.getElementById('emoji-grid').innerHTML = EMOJIS.map(e =>
@@ -874,14 +816,14 @@ async function createGroup() {
 
     const ref = await db.collection('groups').add(groupData);
 
-    // Update user's groupIds
+    // Update users groupIds
     await db.collection('users').doc(S.user.uid).update({
       groupIds: firebase.firestore.FieldValue.arrayUnion(ref.id),
     });
 
     closeModal();
     switchTab('chats');
-    // Live listener will pick up the new group automatically
+    // Live listener
   } catch (e) {
     console.error('Create group error', e);
     showError('modal-error', 'Failed to create group. Try again.');
@@ -889,9 +831,7 @@ async function createGroup() {
   }
 }
 
-/* ═══════════════════════════════════════════════
-   KEYBOARD SHORTCUT (Enter to auth)
-═══════════════════════════════════════════════ */
+
 document.addEventListener('keydown', e => {
   if (e.key==='Enter' && document.activeElement?.classList?.contains('form-input')) {
     handleAuth();
@@ -900,24 +840,24 @@ document.addEventListener('keydown', e => {
 let isProcessingGrammar = false;
 let grammarTimeout;
 
-// This listener waits for the user to stop typing before calling the API
+//waits for the user to stop typing before calling the API
 document.getElementById('message-input')?.addEventListener('input', (e) => {
   const text = e.target.value.trim();
 
-  // 1. Clear the previous timer every time the user presses a key
+  //Clear the previous timer every time the user presses a key
   clearTimeout(grammarTimeout);
 
-  // 2. If the text is too short, just hide the suggestion box and stop
+  //hide the suggestion box and stop
   if (text.length < 5) {
     hideSuggestion();
     return;
   }
 
-  // 3. Set a new timer for 1 second (1000ms)
+  //Set a new timer for 1 second
   grammarTimeout = setTimeout(async () => {
     if (isProcessingGrammar) return;
 
-    // Show "Checking..." UI feedback
+    //UI feedback
     const content = document.getElementById('suggestion-text');
     if (content) content.innerText = "Checking...";
     document.getElementById('suggestion-container')?.classList.remove('hidden');
@@ -940,10 +880,10 @@ document.getElementById('message-input')?.addEventListener('input', (e) => {
   }, 1000);
 });
 
-// 2. THE API CALL: Bulletproof version
+//API groq
 const groq_apiKey = SECRETS.GROQ_KEY;
 async function checkGrammar(text) {
-  // Replace this with your actual key from console.groq.com
+  //replace with the actual api but we dont want it to be on github so its stored locally
   const GROQ_API_KEY = groq_apiKey;
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -955,7 +895,7 @@ async function checkGrammar(text) {
         'Authorization': `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile", // Or "llama3-8b-8192" for even faster speed
+        model: "llama-3.3-70b-versatile",
         messages: [
           {
             role: "system",
@@ -966,7 +906,7 @@ async function checkGrammar(text) {
             content: text
           }
         ],
-        temperature: 0.2 // Keeps the correction predictable
+        temperature: 0.2
       })
     });
 
@@ -984,9 +924,9 @@ async function checkGrammar(text) {
   }
 }
 
-// 3. UI FUNCTIONS: These handle the buttons
+//UI FUNCTIONS
 function applySuggestion() {
-  const input = document.getElementById('msg-input'); // Must match your chat input ID
+  const input = document.getElementById('msg-input');
   if (input && currentSuggestion) {
     input.value = currentSuggestion;
     hideSuggestion();
@@ -995,7 +935,7 @@ function applySuggestion() {
 }
 
 function hideSuggestion() {
-  const container = document.getElementById('suggestion-container'); // MUST match the ID
+  const container = document.getElementById('suggestion-container');
   if (container) {
     container.classList.add('hidden');
   }

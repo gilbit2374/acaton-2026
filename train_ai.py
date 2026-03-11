@@ -12,13 +12,13 @@ from transformers import (
     EarlyStoppingCallback
 )
 
-# 1. טעינה ואיזון נתונים
+
 print("🔄 טוען נתונים ומכין אימון עומק...")
 df = pd.read_csv('dataset.csv').dropna(subset=['text', 'label'])
 mapping = {'toxic': 1, 'clean': 0}
 df['label'] = df['label'].str.strip().map(mapping)
 
-# 2. הכנת הטוקנייזר (שימוש ב-128 טוקנים להקשר רחב)
+
 model_name = "avichr/heBERT"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -39,7 +39,7 @@ class HebrewDataset(torch.utils.data.Dataset):
 train_dataset = HebrewDataset(train_texts, train_labels, tokenizer)
 val_dataset = HebrewDataset(val_texts, val_labels, tokenizer)
 
-# 3. פונקציית חישוב מדדים (כאן נמדדת ה"גאונות" של המודל)
+
 def compute_metrics(pred):
     labels = pred.label_ids
     preds = pred.predictions.argmax(-1)
@@ -47,7 +47,7 @@ def compute_metrics(pred):
     acc = accuracy_score(labels, preds)
     return {'accuracy': acc, 'f1': f1, 'precision': precision, 'recall': recall}
 
-# 4. טיפול בחוסר איזון
+
 weights = compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
 class_weights = torch.tensor(weights, dtype=torch.float)
 
@@ -59,7 +59,7 @@ class WeightedTrainer(Trainer):
         loss_fct = torch.nn.CrossEntropyLoss(weight=class_weights.to(model.device))
         return (loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1)), outputs) if return_outputs else loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
 
-# 5. הגדרות אימון ברמה הגבוהה ביותר
+
 model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
 
 training_args = TrainingArguments(
@@ -85,7 +85,7 @@ trainer = WeightedTrainer(
     train_dataset=train_dataset,
     eval_dataset=val_dataset,
     compute_metrics=compute_metrics,
-    callbacks=[EarlyStoppingCallback(early_stopping_patience=3)] # אם 3 תקופות אין שיפור - תעצור
+    callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
 )
 
 print("🚀 מתחיל אימון אופטימלי (Best-in-class training)...")

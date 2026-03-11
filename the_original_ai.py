@@ -11,48 +11,34 @@ MODEL_FILENAME = 'toxic_model_v2.pkl'
 DATA_FILENAME = 'dataset.csv'
 
 
-# --- 1. עיבוד מקדים (Preprocessing) ---
-
 def clean_hebrew_text(text):
-    """ניקוי בסיסי ושיפור עקביות הטקסט"""
-    # הסרת סימני פיסוק מיותרים שיכולים לבלבל (אבל שמירה על סימני קריאה כי הם מעידים על רעילות)
     replacements = {"?": " ", "!": " !", ".": " ", ",": " "}
     for char, replacement in replacements.items():
         text = text.replace(char, replacement)
     return text.lower().strip()
 
 
-# --- 2. בניית הצינור החכם (The Pipeline) ---
-
 def build_smart_pipeline():
-    """
-    יצירת מודל המשלב ניתוח מילים (Word) וניתוח תווים (Char).
-    ניתוח תווים עוזר לזהות קללות עם שגיאות כתיב או עקיפות (למשל: מ.ח.ב.ל).
-    """
 
-    # וקטוריזציה ברמת המילה (ללמוד הקשר וביטויים)
     word_vectorizer = TfidfVectorizer(
         analyzer='word',
         ngram_range=(1, 3),
         max_features=5000,
-        sublinear_tf=True  # עוזר לנרמל טקסטים באורכים שונים
+        sublinear_tf=True
     )
 
-    # וקטוריזציה ברמת התו (לזיהוי שורשים ושגיאות כתיב)
     char_vectorizer = TfidfVectorizer(
-        analyzer='char_wb',  # מסתכל על תווים בתוך גבולות מילה
+        analyzer='char_wb',
         ngram_range=(2, 5),
         max_features=5000,
         sublinear_tf=True
     )
 
-    # איחוד תכונות
     features = FeatureUnion([
         ('word_features', word_vectorizer),
         ('char_features', char_vectorizer)
     ])
 
-    # שימוש ב-Logistic Regression עם כיול (לרוב יציב יותר מ-SVC בכמויות דאטה קטנות)
     classifier = LogisticRegression(class_weight='balanced', solver='liblinear')
 
     pipeline = Pipeline([
@@ -63,7 +49,6 @@ def build_smart_pipeline():
     return pipeline
 
 
-# --- 3. אימון וניהול ---
 
 def train_and_save():
     texts, labels = [], []
@@ -97,14 +82,12 @@ def predict(text):
     prediction = loaded_model.predict([clean_text])[0]
     probabilities = loaded_model.predict_proba([clean_text])[0]
 
-    # הוצאת הסתברות ה-toxic בצורה בטוחה
     classes = loaded_model.classes_.tolist()
     toxic_index = classes.index('toxic') if 'toxic' in classes else 0
 
     return prediction, probabilities[toxic_index]
 
 
-# --- 4. פונקציות עזר וצ'אט ---
 
 def init_dataset():
     if not os.path.exists(DATA_FILENAME):
@@ -141,7 +124,6 @@ def chat():
 
 if __name__ == "__main__":
     init_dataset()
-    # (שאר תפריט המשתמש נשאר דומה לשלך...)
     x= input("enter a number between 1-3:\n")
     while True:
         if x=="1":
