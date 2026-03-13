@@ -40,6 +40,11 @@ const FIREBASE_CONFIG = {
 const CONFIG_IS_PLACEHOLDER = FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY';
 
 let app, auth, db, storage;
+// --- AUDIO RECORDING STATE (Moved to top) ---
+let isRecording = false;
+let mediaRecorder = null;
+let audioChunks = [];
+let shouldSendRecording = true;
 
 if (CONFIG_IS_PLACEHOLDER) {
   document.getElementById('loading-overlay').classList.add('hidden');
@@ -541,9 +546,9 @@ function renderMessages(msgs, groupId) {
     const mini   = initial(msg.username);
 
     // Determine the content: Audio player OR escaped text
-    const content = msg.audioData
-      ? `<audio controls src="${msg.audioData}" class="chat-audio-player"></audio>`
-      : esc(msg.text);
+const content = msg.audioData
+  ? `<audio controls src="${msg.audioData}" class="chat-audio-player"></audio>`
+  : esc(msg.text);
 
     const delBtn = canDel
       ? `<button class="del-btn" onclick="deleteMessage('${groupId}','${msg.id}')" title="Delete">
@@ -947,11 +952,7 @@ function hideSuggestion() {
   }
 }
 
-// --- AUDIO RECORDING STATE ---
-let mediaRecorder = null;
-let audioChunks = [];
-let isRecording = false;
-let shouldSendRecording = true; // Flag to track if we should upload or discard
+
 
 async function toggleRecording() {
   if (!isRecording) {
