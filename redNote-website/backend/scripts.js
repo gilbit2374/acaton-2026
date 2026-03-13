@@ -39,7 +39,7 @@ const FIREBASE_CONFIG = {
 //init + config check
 const CONFIG_IS_PLACEHOLDER = FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY';
 
-let app, auth, db;
+let app, auth, db, storage;
 
 if (CONFIG_IS_PLACEHOLDER) {
   document.getElementById('loading-overlay').classList.add('hidden');
@@ -48,6 +48,7 @@ if (CONFIG_IS_PLACEHOLDER) {
   app  = firebase.initializeApp(FIREBASE_CONFIG);
   auth = firebase.auth();
   db   = firebase.firestore();
+  storage = firebase.storage(); // Add this line
   // Enable offline persistence
   db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
   initApp();
@@ -539,6 +540,11 @@ function renderMessages(msgs, groupId) {
     const canDel = isMod || isOut;
     const mini   = initial(msg.username);
 
+    // Determine the content: Audio player OR escaped text
+    const content = msg.audioData
+      ? `<audio controls src="${msg.audioData}" class="chat-audio-player"></audio>`
+      : esc(msg.text);
+
     const delBtn = canDel
       ? `<button class="del-btn" onclick="deleteMessage('${groupId}','${msg.id}')" title="Delete">
            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
@@ -549,7 +555,7 @@ function renderMessages(msgs, groupId) {
       html += `
         <div class="msg-row out">
           <div class="msg-wrap out">
-            <div class="msg-bubble out">${esc(msg.text)}</div>
+            <div class="msg-bubble out">${content}</div>
             <div class="msg-foot">${delBtn}<span class="msg-time">${fmtTime(msg.createdAt)}</span></div>
           </div>
         </div>`;
@@ -559,7 +565,7 @@ function renderMessages(msgs, groupId) {
           <div class="msg-mini-avatar" style="background:${g?.color||'#0D1B2A'}">${mini}</div>
           <div class="msg-wrap">
             <div class="msg-sender-name">@${esc(msg.username)}</div>
-            <div class="msg-bubble in">${esc(msg.text)}</div>
+            <div class="msg-bubble in">${content}</div>
             <div class="msg-foot"><span class="msg-time">${fmtTime(msg.createdAt)}</span>${delBtn}</div>
           </div>
         </div>`;
@@ -939,4 +945,137 @@ function hideSuggestion() {
   if (container) {
     container.classList.add('hidden');
   }
+}
+
+// --- AUDIO RECORDING STATE ---
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+let shouldSendRecording = true; // Flag to track if we should upload or discard
+
+async function toggleRecording() {
+  if (!isRecording) {
+    await startRecording();
+  } else {
+    // If user clicks the mic again while recording, we assume they want to STOP & SEND
+    stopRecording(true);
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    shouldSendRecording = true;
+
+    mediaRecorder.ondataavailable = event => {
+      if (event.data.size > 0) audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      // 1. Check if we should actually send this
+      if (!shouldSendRecording) {
+        console.log("Recording discarded by user.");
+        return;
+      }
+
+      // 2. Package and check size
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+      // Max Blob size ~700KB to account for the overhead of Base64 strings
+      const MAX_BLOB_SIZE = 700 * 1024;
+
+      if (audioBlob.size > MAX_BLOB_SIZE) {
+        alert("Audio message is too long for Firestore! Please keep recordings short.");
+        return;
+      }
+
+      if (audioBlob.size > 0) {
+        await uploadAndSendAudio(audioBlob);
+      }
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+
+    // UI Feedback
+    const micBtn = document.getElementById('mic-btn');
+    const cancelBtn = document.getElementById('cancel-record-btn');
+
+    micBtn.classList.add('recording');
+    if(cancelBtn) cancelBtn.style.display = 'flex';
+
+    document.getElementById('msg-input').placeholder = "Recording... Tap mic to send";
+    document.getElementById('msg-input').disabled = true;
+
+  } catch (err) {
+    console.error("Microphone access denied or error:", err);
+    alert("Please allow microphone access to record audio.");
+  }
+}
+
+// Pass 'true' to send, 'false' to discard
+function stopRecording(send = true) {
+  if (mediaRecorder && isRecording) {
+    shouldSendRecording = send;
+    mediaRecorder.stop();
+
+    // Stop all microphone tracks
+    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    isRecording = false;
+
+    // Reset UI
+    const micBtn = document.getElementById('mic-btn');
+    const cancelBtn = document.getElementById('cancel-record-btn');
+
+    micBtn.classList.remove('recording');
+    if(cancelBtn) cancelBtn.style.display = 'none'; // Hide cancel button
+
+    document.getElementById('msg-input').placeholder = "Message...";
+    document.getElementById('msg-input').disabled = false;
+  }
+}
+
+// New function to be called by a 'Cancel' button
+function cancelRecording() {
+  stopRecording(false);
+}
+
+async function uploadAndSendAudio(blob) {
+  if (!S.openGroupId || !S.user) return;
+
+  // Convert the blob to a Base64 string
+  const reader = new FileReader();
+  reader.readAsDataURL(blob);
+  reader.onloadend = async () => {
+    const base64Audio = reader.result;
+
+    try {
+      const ts = firebase.firestore.FieldValue.serverTimestamp();
+      const batch = db.batch();
+      const msgRef = db.collection('groups').doc(S.openGroupId).collection('messages').doc();
+
+      batch.set(msgRef, {
+        userId: S.user.uid,
+        username: S.profile.username,
+        text: '🎵 Audio Message',
+        audioData: base64Audio, // Storing the string directly in Firestore
+        createdAt: ts,
+        isSystemBlocked: false
+      });
+
+      const groupRef = db.collection('groups').doc(S.openGroupId);
+      batch.update(groupRef, {
+        lastMessageAt: ts,
+        lastMessageText: '🎵 Audio Message'
+      });
+
+      await batch.commit();
+      console.log("Audio message sent successfully via Firestore!");
+    } catch (e) {
+      console.error("Error sending audio:", e);
+      alert("Failed to send audio message.");
+    }
+  };
 }

@@ -1020,4 +1020,34 @@ body {
   position: relative;
 }
 
+/* --- AUDIO MESSAGE STYLES --- */
+.chat-audio-player {
+  max-width: 220px;
+  height: 36px;
+  border-radius: 20px;
+  filter: invert(0.05); /* Slight tweak for standard players in dark/light themes */
+  margin-top: 4px;
+  display: block;
+  outline: none;
+}
+
+/* Ensure the audio player doesn't overflow the bubble on very small screens */
+@media (max-width: 500px) {
+  .chat-audio-player {
+    max-width: 165px;
+  }
+}
+
+/* Recording State UI for the Mic Button */
+.mic-btn.recording svg {
+  color: var(--red);
+  animation: pulseMic 1.5s infinite;
+}
+
+@keyframes pulseMic {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 

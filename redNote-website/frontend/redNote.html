@@ -243,6 +243,16 @@
   <button class="btn-apply" onclick="applySuggestion()">Apply</button>
   <button class="btn-ignore" onclick="hideSuggestion()">×</button>
 </div>
+      <button class="mic-btn" id="mic-btn" onclick="toggleRecording()" title="Record Audio" style="background: transparent; border: none; cursor: pointer; padding: 8px; color: var(--text-muted, #666);">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+      <line x1="12" x2="12" y1="19" y2="22"></line>
+    </svg>
+  </button>
+      <button id="cancel-record-btn" class="icon-btn" style="display: none; color: #D91C1C;" onclick="cancelRecording()">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+</button>
 
   <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -301,6 +311,7 @@
   <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-storage-compat.js"></script><!--audio-->
 
     <script src="config.js"></script>
     <script src="../backend/scripts.js"></script>
