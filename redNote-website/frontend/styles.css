@@ -1050,4 +1050,22 @@ body {
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* AI Error Flash Animation */
+@keyframes flashError {
+  0% {
+    background-color: #ffcccc;
+    border-color: #d91c1c;
+    box-shadow: 0 0 15px rgba(217, 28, 28, 0.6); /* Red glow */
+  }
+  100% {
+    background-color: #fff3f3;
+    border-color: #ffcccc;
+    box-shadow: 0 0 0 rgba(217, 28, 28, 0);
+  }
+}
+
+.suggestion-container.error-state {
+  animation: flashError 1.5s forwards;
+}
+
 
