@@ -111,6 +111,25 @@ function setBtn(id, text, disabled) {
   b.textContent = text;
   b.disabled = disabled;
 }
+function showToast(msg, duration = 3000) {
+  let toast = document.getElementById('app-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'app-toast';
+    toast.style.cssText = `
+      position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+      background:#059669; color:#fff; padding:10px 20px; border-radius:20px;
+      font-size:14px; font-weight:600; z-index:9999; opacity:0;
+      transition:opacity 0.3s; pointer-events:none; white-space:nowrap;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => { toast.style.opacity = '0'; }, duration);
+}
+
 function skeletonHTML(n=3) {
   return Array(n).fill(`
     <div class="skeleton-item">
@@ -432,20 +451,21 @@ function renderSearch() {
 
 async function joinGroup(groupId) {
   if (!S.user) return;
-  const btn = document.getElementById('join-btn-'+groupId);
-  if (btn) { btn.textContent = 'Joining…'; btn.disabled = true; }
+
+  const groupRef = db.collection('groups').doc(groupId);
+
   try {
-    await db.collection('groups').doc(groupId).update({
-      memberIds: firebase.firestore.FieldValue.arrayUnion(S.user.uid),
+    // FIX: Update 'memberIds' instead of 'members'
+    await groupRef.update({
+      memberIds: firebase.firestore.FieldValue.arrayUnion(S.user.uid)
     });
-    //Also update user's groupIds
-    await db.collection('users').doc(S.user.uid).update({
-      groupIds: firebase.firestore.FieldValue.arrayUnion(groupId),
-    });
-    //auto-update both screens
+
+    // FIX: Switch to the chats tab instead of trying to close a non-existent modal
+    switchTab('chats');
+    openChat(groupId);
   } catch (e) {
-    console.error('Join error', e);
-    if (btn) { btn.textContent = 'Join'; btn.disabled = false; }
+    console.error("Error joining group:", e);
+    alert("Could not join group.");
   }
 }
 
@@ -820,47 +840,47 @@ function updateToggleLabel() {
 }
 
 async function createGroup() {
-  const name = document.getElementById('new-group-name').value.trim();
-  const desc = document.getElementById('new-group-desc').value.trim();
-  if (!name)         return showError('modal-error','Group name is required');
-  if (name.length<3) return showError('modal-error','Name must be 3+ characters');
+    if (!S.user) return;
 
-  setBtn('create-btn','Creating…',true);
-  showError('modal-error','');
+    const nameInput = document.getElementById('new-group-name');
+    const descInput = document.getElementById('new-group-desc');
 
-  try {
-    const groupData = {
-      name, description: desc,
-      isPublic:   S.newGroup.isPublic,
-      color:      S.newGroup.color,
-      emoji:      S.newGroup.emoji,
-      creatorId:  S.user.uid,
-      creatorUsername: S.profile.username,
-      memberIds:  [S.user.uid],
-      memberCount: 1,
-      createdAt:  firebase.firestore.FieldValue.serverTimestamp(),
-      lastMessageAt:      firebase.firestore.FieldValue.serverTimestamp(),
-      lastMessagePreview: '',
-      lastMessageSender:  '',
-    };
+    if (!nameInput.value.trim()) {
+        document.getElementById('modal-error').innerText = "Group name is required.";
+        return;
+    }
 
-    const ref = await db.collection('groups').add(groupData);
+    try {
+        const groupRef = db.collection('groups').doc();
+        await groupRef.set({
+            name: nameInput.value.trim(),
+            description: descInput.value.trim() || "",
+            emoji: S.newGroup.emoji || "💬",
+            color: S.newGroup.color || "#D91C1C",
+            isPublic: S.newGroup.isPublic,
+            creatorId: S.user.uid,
+            memberIds: [S.user.uid],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastMessageText: "Group created"
+        });
 
-    // Update users groupIds
-    await db.collection('users').doc(S.user.uid).update({
-      groupIds: firebase.firestore.FieldValue.arrayUnion(ref.id),
-    });
+        // 1. CLEAR INPUTS
+        nameInput.value = "";
+        descInput.value = "";
 
-    closeModal();
-    switchTab('chats');
-    // Live listener
-  } catch (e) {
-    console.error('Create group error', e);
-    showError('modal-error', 'Failed to create group. Try again.');
-    setBtn('create-btn','Create Group',false);
-  }
+        // 2. CLOSE MODAL MANUALLY (Force it)
+        closeModal();
+
+        // 3. SWITCH TO CHATS TAB & OPEN
+        switchTab('chats');
+        openChat(groupRef.id);
+
+    } catch (e) {
+        console.error("Create Group Error:", e);
+        alert("Failed to create group. Check console.");
+    }
 }
-
 
 document.addEventListener('keydown', e => {
   if (e.key==='Enter' && document.activeElement?.classList?.contains('form-input')) {
@@ -1067,4 +1087,108 @@ async function uploadAndSendAudio(blob) {
       alert("Failed to send audio message.");
     }
   };
+}
+
+async function deleteCurrentGroup() {
+  if (!S.openGroupId || !S.user) return;
+  if (!confirm("Delete this group permanently? This cannot be undone.")) return;
+
+  const gid = S.openGroupId;
+
+  try {
+    // Pre-flight: re-fetch the group and verify ownership before attempting delete
+    const groupDoc = await db.collection('groups').doc(gid).get();
+    if (!groupDoc.exists) {
+      alert("Group no longer exists.");
+      closeGroupInfo();
+      closeChat();
+      return;
+    }
+
+    const data = groupDoc.data();
+    const isOwner = data.creatorId === S.user.uid || data.ownerId === S.user.uid;
+
+    if (!isOwner) {
+      alert("You are not the creator of this group and cannot delete it.");
+      return;
+    }
+
+    // 1. Delete from Firebase
+    await db.collection('groups').doc(gid).delete();
+
+    // 2. Close ALL UI layers immediately
+    closeGroupInfo();     // Close the right-side info panel
+    closeChat();          // Hide the chat screen (mobile view)
+
+    // 3. Reset Global State
+    S.openGroupId = null;
+
+    // 4. Clear the UI
+    const msgList = document.getElementById('messages-list');
+    if (msgList) msgList.innerHTML = "";
+
+    const hdrName = document.getElementById('chat-hdr-name');
+    if (hdrName) hdrName.innerText = "—";
+
+    // 5. Show success toast
+    showToast("Group deleted successfully.");
+    console.log("Group deleted successfully");
+  } catch (e) {
+    console.error("Delete Error:", e);
+    // Show the real Firebase error code so you can debug it
+    const reason = e.code || e.message || 'unknown error';
+    alert(`Could not delete group (${reason}). Make sure your Firebase rules are deployed and match the creatorId field.`);
+  }
+}
+
+function closeGroupInfo() {
+  document.getElementById('info-panel-overlay').classList.remove('active');
+  document.getElementById('group-info-panel').classList.remove('active');
+}
+
+async function showGroupInfo() {
+  if (!S.openGroupId) return;
+
+  try {
+    const doc = await db.collection('groups').doc(S.openGroupId).get();
+    if (!doc.exists) return;
+    const data = doc.data();
+
+    // 1. Fill Text
+    document.getElementById('info-panel-name').innerText = data.name;
+    document.getElementById('info-panel-desc').innerText = data.description || "No description provided.";
+    document.getElementById('info-panel-avatar').innerText = data.emoji || '📁';
+
+    // 2. Member Count Logic
+    let memberCount = 1;
+    // FIX: check memberIds instead of members
+    if (data.memberIds && Array.isArray(data.memberIds)) {
+      memberCount = data.memberIds.length;
+    }
+
+    const memberText = document.getElementById('info-panel-members');
+    if (memberText) {
+      memberText.innerHTML = `<i class="fas fa-users" style="margin-right: 8px; color: var(--navy);"></i> ${memberCount} Participant${memberCount > 1 ? 's' : ''}`;
+    }
+
+    // 3. Delete Button Visibility
+    // ... inside showGroupInfo find the delete button logic:
+
+const deleteBtn = document.getElementById('btn-delete-group');
+
+// Check both the old field (ownerId) and the new field (creatorId)
+const isOwner = (data.creatorId === S.user.uid || data.ownerId === S.user.uid);
+
+if (isOwner) {
+    deleteBtn.classList.remove('hidden');
+} else {
+    deleteBtn.classList.add('hidden');
+}
+
+    // 4. Show the panel
+    document.getElementById('info-panel-overlay').classList.add('active');
+    document.getElementById('group-info-panel').classList.add('active');
+  } catch (e) {
+    console.error("Group Info Failed to Open:", e);
+  }
 }

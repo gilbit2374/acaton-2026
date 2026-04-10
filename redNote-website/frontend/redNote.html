@@ -53,7 +53,7 @@
       <div class="auth-logo-box">
         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       </div>
-      <div class="auth-title">Nume</div>
+      <div class="auth-title">JusTalk</div>
       <div class="auth-sub">Real-time group conversations<br/>built on identity, not anonymity</div>
     </div>
 
@@ -91,11 +91,11 @@
   </div>
 
   <!--MAIN APP-->
-  <div id="main-app" style="display:none;flex:1;display:flex;flex-direction:column;overflow:hidden;display:none">
+  <div id="main-app" style="display:none">
 
     <!-- Top Header -->
     <div id="top-header">
-      <div class="header-logo">Nu<span>me</span></div>
+      <div class="header-logo">Jus<span>Talk</span></div>
       <div style="flex:1"></div>
       <button class="icon-btn" id="create-group-btn" onclick="openModal()" title="New Group">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -219,7 +219,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
       </button>
       <div class="chat-hdr-avatar" id="chat-hdr-avatar"></div>
-      <div class="chat-hdr-info">
+      <div class="chat-hdr-info" onclick="showGroupInfo()" style="cursor: pointer;">
         <div class="chat-hdr-name" id="chat-hdr-name">—</div>
         <div class="chat-hdr-sub" id="chat-hdr-sub">—</div>
       </div>
@@ -229,37 +229,39 @@
     <div class="messages-list" id="messages-list"></div>
 
     <div class="input-bar">
-  <button class="grammar-check-btn" onclick="manualGrammarCheck()" title="Check Grammar">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
-  </button>
+      <button class="grammar-check-btn" onclick="manualGrammarCheck()" title="Check Grammar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
+      </button>
 
-  <textarea class="msg-input" id="msg-input" placeholder="Message..." rows="1"
-    oninput="autoResize(this)" onkeydown="handleMsgKey(event)"></textarea>
+      <textarea class="msg-input" id="msg-input" placeholder="Message..." rows="1"
+        oninput="autoResize(this)" onkeydown="handleMsgKey(event)"></textarea>
 
-  <div id="suggestion-container" class="suggestion-container hidden">
-  <div class="suggestion-content">
-    <span id="suggestion-text"></span>
-  </div>
-  <button class="btn-apply" onclick="applySuggestion()">Apply</button>
-  <button class="btn-ignore" onclick="hideSuggestion()">×</button>
-</div>
+      <div id="suggestion-container" class="suggestion-container hidden">
+        <div class="suggestion-content">
+          <span id="suggestion-text"></span>
+        </div>
+        <button class="btn-apply" onclick="applySuggestion()">Apply</button>
+        <button class="btn-ignore" onclick="hideSuggestion()">×</button>
+      </div>
+
       <button class="mic-btn" id="mic-btn" onclick="toggleRecording()" title="Record Audio" style="background: transparent; border: none; cursor: pointer; padding: 8px; color: var(--text-muted, #666);">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-      <line x1="12" x2="12" y1="19" y2="22"></line>
-    </svg>
-  </button>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" x2="12" y1="19" y2="22"></line>
+        </svg>
+      </button>
       <button id="cancel-record-btn" class="icon-btn" style="display: none; color: #D91C1C;" onclick="cancelRecording()">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-</button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
 
-  <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-  </button>
-</div>
+      <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div><!-- /#chat-screen — modal & panels are OUTSIDE this div -->
 
-  <!-- CREATE GROUP MODAL -->
+  <!-- CREATE GROUP MODAL (must be outside #chat-screen so it isn't hidden with it) -->
   <div class="modal-overlay" id="create-modal" onclick="handleOverlayClick(event)">
     <div class="modal-sheet">
       <div class="modal-handle"></div>
@@ -297,6 +299,36 @@
       <button class="btn-primary" onclick="createGroup()">Create Group</button>
     </div>
   </div>
+
+  <!-- GROUP INFO PANEL (must be outside #chat-screen so z-index and visibility work correctly) -->
+  <div id="group-info-panel" class="info-panel">
+    <div class="info-panel-header">
+      <button class="back-btn" onclick="closeGroupInfo()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <h3 style="flex:1; text-align:center; margin-right: 40px; color: var(--navy);">Group Info</h3>
+    </div>
+
+    <div class="info-panel-content">
+      <div id="info-panel-avatar" class="info-avatar-large">📁</div>
+      <div id="info-panel-name" class="info-group-name">Group Name</div>
+      <div id="info-panel-desc" class="info-group-desc">Description goes here</div>
+
+      <div class="info-section">
+        <div class="info-section-title">Members</div>
+        <div id="info-panel-members" style="font-weight: 600; color: var(--navy);">
+          <i class="fas fa-users" style="margin-right: 8px; color: var(--muted);"></i> 1 Participant
+        </div>
+      </div>
+
+      <button id="btn-delete-group" class="btn-primary hidden"
+              style="background: #fee2e2; color: var(--red); width: 100%; margin-top: 20px; box-shadow: none;"
+              onclick="deleteCurrentGroup()">
+        🗑️ Delete Group
+      </button>
+    </div>
+  </div>
+  <div id="info-panel-overlay" class="info-panel-overlay" onclick="closeGroupInfo()"></div>
 
 </div><!-- #app -->
 <script>
