@@ -1,6 +1,12 @@
 //state
 let currentSuggestion = "";
 let classifier;
+
+// --- CLOUDINARY CONFIGURATION ---
+const CLOUDINARY_CLOUD_NAME = 'dhi4fx2zt';
+const CLOUDINARY_UPLOAD_PRESET = 'acaton 2026';
+// --------------------------------
+
 //i got no idea where aitan got it from but sure
 
 // (State is managed by the `S` object below)
