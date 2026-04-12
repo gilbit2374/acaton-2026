@@ -1,4 +1,3 @@
-
 /*CSS VARIABLES & RESET*/
 :root {
   --red:       #D91C1C;
@@ -1196,3 +1195,136 @@ body {
 }
 
 
+
+/* ── PERSONALITY QUIZ VIEW ─────────────────────────────────────────────────── */
+#personality-view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--navy);
+  z-index: 101;
+  border-radius: 36px;
+  overflow: hidden;
+}
+@media (max-width: 450px) { #personality-view { border-radius: 0; } }
+
+.personality-panel {
+  overflow-y: auto;
+  padding-bottom: 40px;
+}
+
+.personality-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.personality-intro-label {
+  font-family: var(--font-d);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.personality-intro-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── PERSONALITY TAG PILLS ─────────────────────────────────────────────────── */
+.personality-tags-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.personality-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 13px;
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  background: white;
+  color: var(--navy);
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.personality-tag:hover {
+  border-color: var(--red);
+  background: #FFF0F0;
+}
+.personality-tag.selected {
+  border-color: var(--red);
+  background: var(--red);
+  color: white;
+}
+.ptag-emoji {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.btn-skip {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-b);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: color 0.2s;
+}
+.btn-skip:hover { color: var(--navy); }
+
+/* ── GROUP TAG PILLS (in cards and modal) ──────────────────────────────────── */
+.group-tag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+.group-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--smoke);
+  color: var(--navy);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* ── MATCH BADGE ───────────────────────────────────────────────────────────── */
+.match-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #FFF8E1;
+  color: #B45309;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* ── RECOMMEND SECTION LABEL ───────────────────────────────────────────────── */
+.recommend-section-label {
+  font-family: var(--font-d);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 16px 8px;
+}

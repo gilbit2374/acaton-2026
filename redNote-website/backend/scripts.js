@@ -76,10 +76,24 @@ const S = {
 let unsubMyGroups   = null;
 let unsubPublicGroups = null;
 let unsubMessages   = null;
+let pendingPersonalitySetup = false;
 
 //constants
 const EMOJIS = ['💬','🚀','🎨','💡','🔥','📈','🤖','🌍','🎯','🛠️','📚','🎮'];
 const COLORS = ['#D91C1C','#0D1B2A','#2563EB','#7C3AED','#059669','#D97706','#DB2777'];
+
+const PERSONALITY_TAGS = [
+  { id: 'math',     label: 'Math & Logic',       emoji: '📐' },
+  { id: 'english',  label: 'Language & Writing',  emoji: '📖' },
+  { id: 'science',  label: 'Science',             emoji: '🔬' },
+  { id: 'art',      label: 'Art & Creativity',    emoji: '🎨' },
+  { id: 'gaming',   label: 'Gaming',              emoji: '🎮' },
+  { id: 'sports',   label: 'Sports & Fitness',    emoji: '🏃' },
+  { id: 'tech',     label: 'Technology',          emoji: '💻' },
+  { id: 'music',    label: 'Music',               emoji: '🎵' },
+  { id: 'travel',   label: 'Travel & Culture',    emoji: '🌍' },
+  { id: 'business', label: 'Business',            emoji: '💼' },
+];
 
 const esc     = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const initial = s => (s||'?').charAt(0).toUpperCase();
@@ -153,7 +167,13 @@ function initApp() {
           username: firebaseUser.email.split('@')[0],
           displayName: firebaseUser.email.split('@')[0],
         };
-        showMainApp();
+        if (pendingPersonalitySetup) {
+          pendingPersonalitySetup = false;
+          hideLoading();
+          showPersonalityQuiz();
+        } else {
+          showMainApp();
+        }
       } catch (e) {
         console.error('Profile fetch error', e);
         showAuthScreen();
@@ -203,6 +223,42 @@ function showMainApp() {
   switchTab('chats');
 }
 
+// ── PERSONALITY QUIZ ─────────────────────────────────────────────────────────
+function showPersonalityQuiz() {
+  document.getElementById('auth-view').style.display = 'none';
+  const pv = document.getElementById('personality-view');
+  pv.style.display = 'flex';
+
+  document.getElementById('quiz-tags-grid').innerHTML = PERSONALITY_TAGS.map(t =>
+    `<button class="personality-tag" data-id="${t.id}" onclick="toggleQuizTag(this)">
+       <span class="ptag-emoji">${t.emoji}</span>${t.label}
+     </button>`
+  ).join('');
+}
+
+function toggleQuizTag(btn) {
+  btn.classList.toggle('selected');
+}
+
+async function savePersonality() {
+  const selected = [...document.querySelectorAll('#quiz-tags-grid .personality-tag.selected')]
+    .map(b => b.dataset.id);
+  try {
+    if (S.user) {
+      await db.collection('users').doc(S.user.uid).update({ personalityTags: selected });
+      if (S.profile) S.profile.personalityTags = selected;
+    }
+  } catch (e) { console.error('Save personality error', e); }
+  document.getElementById('personality-view').style.display = 'none';
+  showMainApp();
+}
+
+function skipPersonality() {
+  document.getElementById('personality-view').style.display = 'none';
+  showMainApp();
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function teardownListeners() {
   if (unsubMyGroups)     { unsubMyGroups();     unsubMyGroups = null; }
   if (unsubPublicGroups) { unsubPublicGroups(); unsubPublicGroups = null; }
@@ -238,6 +294,9 @@ async function handleAuth() {
       if (username.length < 3)       throw new Error('Username must be 3+ characters');
       if (!/^[a-z0-9._]+$/.test(username)) throw new Error('Username: letters, numbers, . and _ only');
 
+      // Flag that we should show the personality quiz after auth state changes
+      pendingPersonalitySetup = true;
+
       //Create Firebase Auth account FIRST
       const cred = await auth.createUserWithEmailAndPassword(email, password);
 
@@ -270,6 +329,7 @@ async function handleAuth() {
       await auth.signInWithEmailAndPassword(email, password);
     }
   } catch (err) {
+    pendingPersonalitySetup = false;
     let msg = err.message || 'Something went wrong';
     if (err.code === 'auth/user-not-found')    msg = 'No account found with this email';
     if (err.code === 'auth/wrong-password')     msg = 'Incorrect password';
@@ -401,6 +461,7 @@ function renderSearch() {
   const q      = (document.getElementById('search-input')?.value || '').toLowerCase();
   const uid    = S.user?.uid;
   const groups = S.allPublicGroups;
+  const userTags = S.profile?.personalityTags || [];
 
   if (groups.length === 0) {
     document.getElementById('search-results').innerHTML = skeletonHTML(4);
@@ -427,18 +488,46 @@ function renderSearch() {
     return;
   }
 
-  el.innerHTML = '<div style="padding:6px 0">' + filtered.map(g => {
+  // Score each group by how many tags match the user's personality
+  const scored = filtered.map(g => {
+    const groupTags = g.tags || [];
+    const matchCount = userTags.length > 0
+      ? groupTags.filter(t => userTags.includes(t)).length
+      : 0;
+    return { ...g, _matchScore: matchCount };
+  });
+
+  // Split into recommended (score > 0) and the rest
+  const recommended = scored.filter(g => g._matchScore > 0)
+    .sort((a, b) => b._matchScore - a._matchScore);
+  const others = scored.filter(g => g._matchScore === 0);
+
+  function groupCardHTML(g) {
     const joined = uid && (g.memberIds||[]).includes(uid);
     const btn    = joined
       ? `<button class="btn-open" onclick="openChat('${g.id}');event.stopPropagation()">Open</button>`
       : `<button class="btn-join" id="join-btn-${g.id}" onclick="joinGroup('${g.id}');event.stopPropagation()">Join</button>`;
+
+    const groupTags = g.tags || [];
+    const tagPills = groupTags.length > 0
+      ? `<div class="group-tag-pills">${groupTags.slice(0,3).map(tid => {
+          const t = PERSONALITY_TAGS.find(x => x.id === tid);
+          return t ? `<span class="group-tag-pill">${t.emoji} ${t.label}</span>` : '';
+        }).join('')}</div>`
+      : '';
+
+    const matchBadge = g._matchScore > 0
+      ? `<span class="match-badge">⭐ Matches you</span>`
+      : '';
+
     return `
       <div class="group-card">
         <div class="group-card-top">
           <div class="group-card-avatar" style="background:${g.color||'#D91C1C'};color:white">${g.emoji||initial(g.name)}</div>
-          <div>
-            <div class="group-card-name">${esc(g.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div class="group-card-name">${esc(g.name)} ${matchBadge}</div>
             <div class="group-card-desc">${esc(g.description||'')}</div>
+            ${tagPills}
           </div>
         </div>
         <div class="group-card-bottom">
@@ -446,7 +535,23 @@ function renderSearch() {
           ${btn}
         </div>
       </div>`;
-  }).join('') + '</div>';
+  }
+
+  let html = '<div style="padding:6px 0">';
+
+  if (recommended.length > 0 && !q) {
+    html += `<div class="recommend-section-label">✨ Recommended for you</div>`;
+    html += recommended.map(groupCardHTML).join('');
+    if (others.length > 0) {
+      html += `<div class="recommend-section-label" style="margin-top:12px">All Groups</div>`;
+      html += others.map(groupCardHTML).join('');
+    }
+  } else {
+    html += scored.map(groupCardHTML).join('');
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 async function joinGroup(groupId) {
@@ -804,6 +909,13 @@ function openModal() {
   document.getElementById('new-group-name').value = '';
   document.getElementById('new-group-desc').value = '';
   S.newGroup.isPublic = true;
+  S.newGroup.tags = [];
+  // Render personality tag picker for group
+  document.getElementById('group-tags-grid').innerHTML = PERSONALITY_TAGS.map(t =>
+    `<button class="personality-tag" data-id="${t.id}" onclick="toggleGroupTag(this)">
+       <span class="ptag-emoji">${t.emoji}</span>${t.label}
+     </button>`
+  ).join('');
   const t = document.getElementById('privacy-toggle');
   t.classList.add('on'); t.classList.remove('off');
   updateToggleLabel();
@@ -828,6 +940,9 @@ function selectColor(c) {
     s.classList.toggle('selected', s.style.background===c);
   });
 }
+function toggleGroupTag(btn) {
+  btn.classList.toggle('selected');
+}
 function togglePrivacy() {
   S.newGroup.isPublic = !S.newGroup.isPublic;
   document.getElementById('privacy-toggle').classList.toggle('on',  S.newGroup.isPublic);
@@ -851,6 +966,9 @@ async function createGroup() {
     }
 
     try {
+        const selectedTags = [...document.querySelectorAll('#group-tags-grid .personality-tag.selected')]
+            .map(b => b.dataset.id);
+
         const groupRef = db.collection('groups').doc();
         await groupRef.set({
             name: nameInput.value.trim(),
@@ -858,6 +976,7 @@ async function createGroup() {
             emoji: S.newGroup.emoji || "💬",
             color: S.newGroup.color || "#D91C1C",
             isPublic: S.newGroup.isPublic,
+            tags: selectedTags,
             creatorId: S.user.uid,
             memberIds: [S.user.uid],
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),

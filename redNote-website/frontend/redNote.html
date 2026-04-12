@@ -90,6 +90,28 @@
     </div>
   </div>
 
+  <!-- PERSONALITY QUIZ VIEW -->
+  <div id="personality-view" style="display:none">
+    <div class="auth-bg-blob" style="width:280px;height:280px;top:-100px;left:-80px;opacity:0.1"></div>
+    <div class="auth-bg-blob" style="width:180px;height:180px;top:80px;right:-60px;opacity:0.07"></div>
+    <div class="auth-top">
+      <div class="auth-logo-box">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <div class="auth-title">Your Vibe?</div>
+      <div class="auth-sub">Pick your interests so we can<br/>recommend the best groups for you</div>
+    </div>
+    <div class="auth-panel personality-panel">
+      <div class="personality-intro">
+        <span class="personality-intro-label">Choose what you love</span>
+        <span class="personality-intro-hint">Select as many as you like</span>
+      </div>
+      <div class="personality-tags-grid" id="quiz-tags-grid"></div>
+      <button class="btn-primary" style="margin-top:20px" onclick="savePersonality()">Find My Groups →</button>
+      <button class="btn-skip" onclick="skipPersonality()">Skip for now</button>
+    </div>
+  </div>
+
   <!--MAIN APP-->
   <div id="main-app" style="display:none">
 
@@ -284,6 +306,11 @@
       <div class="form-group">
         <label class="form-label">Color</label>
         <div class="color-grid" id="color-grid"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Topics &amp; Interests</label>
+        <div class="personality-tags-grid" id="group-tags-grid" style="max-height:130px;overflow-y:auto"></div>
       </div>
 
       <div class="toggle-row">
