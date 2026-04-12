@@ -1677,6 +1677,8 @@ function updateToggleLabel() {
   document.getElementById('toggle-desc').textContent  = S.newGroup.isPublic ? 'Anyone can search & join' : 'Invite-only access';
 }
 
+
+
 async function createGroup() {
     if (!S.user) return;
 
@@ -1724,6 +1726,26 @@ async function createGroup() {
         alert("Failed to create group. Check console.");
     }
 }
+
+async function handleClick(btn) {
+    if (btn.disabled) return
+
+    btn.disabled = true
+    const start = Date.now()
+
+    try {
+        await createGroup()
+    } finally {
+        const elapsed = Date.now() - start
+        const remaining = 1000 - elapsed
+
+        setTimeout(() => {
+            btn.disabled = false
+        }, Math.max(0, remaining))
+    }
+}
+
+
 
 document.addEventListener('keydown', e => {
   if (e.key==='Enter' && document.activeElement?.classList?.contains('form-input')) {
