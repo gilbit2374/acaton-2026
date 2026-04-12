@@ -2,10 +2,7 @@
 let currentSuggestion = "";
 let classifier;
 
-// --- CLOUDINARY CONFIGURATION ---
-const CLOUDINARY_CLOUD_NAME = 'dhi4fx2zt';
-const CLOUDINARY_UPLOAD_PRESET = 'acaton 2026';
-// --------------------------------
+
 
 //i got no idea where aitan got it from but sure
 
@@ -49,8 +46,8 @@ const CONFIG_IS_PLACEHOLDER = FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY';
 // 1. Free account at https://cloudinary.com
 // 2. Dashboard → Settings → Upload → "Add upload preset" → Mode = Unsigned
 // 3. Paste your Cloud Name and preset name below
-const CLOUDINARY_CLOUD_NAME    = 'YOUR_CLOUD_NAME';    // e.g. 'dxyz123abc'
-const CLOUDINARY_UPLOAD_PRESET = 'YOUR_UPLOAD_PRESET'; // e.g. 'justalk_videos'
+const CLOUDINARY_CLOUD_NAME    = 'dhi4fx2zt';
+const CLOUDINARY_UPLOAD_PRESET = 'acaton 2026';
 // ─────────────────────────────────────────────────────────────────────────────
 
 let app, auth, db, storage;
