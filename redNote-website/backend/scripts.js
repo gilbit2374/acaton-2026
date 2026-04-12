@@ -39,12 +39,66 @@ const FIREBASE_CONFIG = {
 //init + config check
 const CONFIG_IS_PLACEHOLDER = FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY';
 
+// ── CLOUDINARY CONFIG (free video hosting, no Firebase Storage needed) ────────
+// 1. Free account at https://cloudinary.com
+// 2. Dashboard → Settings → Upload → "Add upload preset" → Mode = Unsigned
+// 3. Paste your Cloud Name and preset name below
+const CLOUDINARY_CLOUD_NAME    = 'YOUR_CLOUD_NAME';    // e.g. 'dxyz123abc'
+const CLOUDINARY_UPLOAD_PRESET = 'YOUR_UPLOAD_PRESET'; // e.g. 'justalk_videos'
+// ─────────────────────────────────────────────────────────────────────────────
+
 let app, auth, db, storage;
 // --- AUDIO RECORDING STATE (Moved to top) ---
 let isRecording = false;
 let mediaRecorder = null;
 let audioChunks = [];
 let shouldSendRecording = true;
+
+// --- VIDEO RECORDING STATE ---
+let videoStream       = null;
+let videoMediaRecorder = null;
+let videoChunks       = [];
+let isVideoRecording  = false;
+let videoRecTimer     = null;
+let videoRecSeconds   = 0;
+
+// --- LIVE STREAM STATE ---
+let localStream          = null;
+let peerConnections      = {};   // { viewerId: RTCPeerConnection }  — broadcaster side
+let viewerPeerConnection = null; // single PC on the viewer side
+let isLiveBroadcaster    = false;
+let unsubLiveSession     = null;
+let unsubViewers         = null;
+let viewerSnapshotUnsub  = null; // unsub for viewer's signaling listener
+
+const STUN_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    // Free TURN relay — handles symmetric NAT (required for most mobile/home networks)
+    {
+      urls: 'turn:global.relay.metered.ca:80',
+      username: 'e9d3b3f5cb58b55c0ce26cca',
+      credential: 'BaR4LB0C1CuaGrEw'
+    },
+    {
+      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+      username: 'e9d3b3f5cb58b55c0ce26cca',
+      credential: 'BaR4LB0C1CuaGrEw'
+    },
+    {
+      urls: 'turn:global.relay.metered.ca:443',
+      username: 'e9d3b3f5cb58b55c0ce26cca',
+      credential: 'BaR4LB0C1CuaGrEw'
+    },
+    {
+      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+      username: 'e9d3b3f5cb58b55c0ce26cca',
+      credential: 'BaR4LB0C1CuaGrEw'
+    }
+  ]
+};
 
 if (CONFIG_IS_PLACEHOLDER) {
   document.getElementById('loading-overlay').classList.add('hidden');
@@ -613,12 +667,19 @@ function openChat(groupId) {
   document.getElementById('send-btn').disabled = true;
 
   startMessagesListener(groupId);
+  startLiveSessionListener(groupId);
   setTimeout(() => inp.focus(), 360);
 }
 
 function closeChat() {
   document.getElementById('chat-screen').classList.remove('open');
   if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+  if (unsubLiveSession) { unsubLiveSession(); unsubLiveSession = null; }
+  // If broadcaster leaves the chat screen, end the live
+  if (isLiveBroadcaster) stopLiveStream();
+  // If viewer leaves, disconnect
+  leaveLiveStream();
+  closeAttachMenu();
   S.openGroupId = null; S.openGroupData = null;
 }
 
@@ -671,10 +732,23 @@ function renderMessages(msgs, groupId) {
     const canDel = isMod || isOut;
     const mini   = initial(msg.username);
 
-    // Determine the content: Audio player OR escaped text
-const content = msg.audioData
-  ? `<audio controls src="${msg.audioData}" class="chat-audio-player"></audio>`
-  : esc(msg.text);
+    // Determine the content: Video player OR Audio player OR Live notice OR text
+const content = msg.videoUrl
+  ? `<div class="chat-video-wrap">
+       <video controls src="${esc(msg.videoUrl)}" class="chat-video-player" preload="metadata" playsinline></video>
+     </div>`
+  : msg.audioData
+    ? `<audio controls src="${msg.audioData}" class="chat-audio-player"></audio>`
+    : msg.isLiveNotice
+      ? `<div class="live-notice-bubble" onclick="joinLiveStream('${esc(msg.liveGroupId || '')}')">
+           <div class="live-notice-icon"><span class="live-dot-pulse"></span></div>
+           <div class="live-notice-text">
+             <span class="live-notice-title">Live Stream Started</span>
+             <span class="live-notice-sub">${esc(msg.text)}</span>
+           </div>
+           <span class="live-notice-watch">Watch →</span>
+         </div>`
+      : esc(msg.text);
 
     const delBtn = canDel
       ? `<button class="del-btn" onclick="deleteMessage('${groupId}','${msg.id}')" title="Delete">
@@ -881,22 +955,522 @@ async function checkForSuggestions(text) {
   }
 }
 
-function applySuggestion() {
-  const inp = document.getElementById('msg-input');
+// ══════════════════════════════════════════════════════════════════════════════
+//  VIDEO SHARING & LIVE STREAMING
+// ══════════════════════════════════════════════════════════════════════════════
 
-  if (currentSuggestion) {
-      inp.value = currentSuggestion;
+// ── ATTACH MENU ───────────────────────────────────────────────────────────────
+function toggleAttachMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('attach-menu');
+  const isHidden = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !isHidden);
+  if (isHidden) {
+    setTimeout(() => document.addEventListener('click', closeAttachOnOutside, { once: true }), 0);
+  }
+}
+
+function closeAttachMenu() {
+  document.getElementById('attach-menu')?.classList.add('hidden');
+}
+
+function closeAttachOnOutside(e) {
+  if (!e.target.closest('#attach-menu') && !e.target.closest('#attach-btn')) {
+    closeAttachMenu();
+  } else {
+    document.addEventListener('click', closeAttachOnOutside, { once: true });
+  }
+}
+
+// ── VIDEO UPLOAD (file picker) ────────────────────────────────────────────────
+function triggerVideoFileInput() {
+  closeAttachMenu();
+  document.getElementById('video-file-input').click();
+}
+
+async function handleVideoFileSelect(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+
+  const MAX = 100 * 1024 * 1024; // 100 MB
+  if (file.size > MAX) {
+    showToast('❌ Video too large — max 100 MB', 4000);
+    return;
   }
 
-  hideSuggestion();
-  autoResize(inp);
-  currentSuggestion = ""; //Clear the memory
+  try {
+    const url = await uploadVideoToStorage(file, file.name);
+    await sendVideoMessage(url, file.name);
+  } catch (e) {
+    console.error('Video upload error:', e);
+    showToast('❌ Upload failed. Check Firebase Storage rules.', 4000);
+  }
 }
 
-function hideSuggestion() {
-  document.getElementById('ai-suggestion-box').classList.add('hidden');
+// ── VIDEO UPLOAD via Cloudinary (free, no Firebase Storage needed) ──────────
+async function uploadVideoToStorage(file, label = 'video') {
+  if (CLOUDINARY_CLOUD_NAME === 'YOUR_CLOUD_NAME' || CLOUDINARY_UPLOAD_PRESET === 'YOUR_UPLOAD_PRESET') {
+    showToast('⚠️ Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET in scripts.js', 5000);
+    throw new Error('Cloudinary not configured');
+  }
+
+  const bar  = document.getElementById('upload-progress-bar');
+  const fill = document.getElementById('upload-progress-fill');
+  const lbl  = document.getElementById('upload-progress-label');
+  bar.classList.remove('hidden');
+  fill.style.width = '0%';
+  lbl.textContent  = 'Uploading 0%…';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  formData.append('resource_type', 'video');
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`);
+
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) {
+        const pct = Math.round(e.loaded / e.total * 100);
+        fill.style.width = pct + '%';
+        lbl.textContent  = `Uploading ${pct}%…`;
+      }
+    };
+
+    xhr.onload = () => {
+      bar.classList.add('hidden');
+      if (xhr.status === 200) {
+        const data = JSON.parse(xhr.responseText);
+        showToast('✅ Video sent!');
+        resolve(data.secure_url);
+      } else {
+        console.error('Cloudinary error:', xhr.responseText);
+        reject(new Error('Upload failed — check your cloud name and upload preset'));
+      }
+    };
+
+    xhr.onerror = () => {
+      bar.classList.add('hidden');
+      reject(new Error('Network error during upload'));
+    };
+
+    xhr.send(formData);
+  });
 }
 
+async function sendVideoMessage(url, label = 'Video') {
+  if (!S.openGroupId || !S.user) return;
+  const ts    = firebase.firestore.FieldValue.serverTimestamp();
+  const batch = db.batch();
+  const msgRef  = db.collection('groups').doc(S.openGroupId).collection('messages').doc();
+  batch.set(msgRef, {
+    userId:   S.user.uid,
+    username: S.profile.username,
+    text:     '🎬 ' + label,
+    videoUrl: url,
+    createdAt: ts,
+    isSystemBlocked: false
+  });
+  const groupRef = db.collection('groups').doc(S.openGroupId);
+  batch.update(groupRef, {
+    lastMessageAt:      ts,
+    lastMessagePreview: '🎬 Video',
+    lastMessageSender:  S.profile.username
+  });
+  await batch.commit();
+}
+
+// ── VIDEO RECORDER ────────────────────────────────────────────────────────────
+function openVideoRecorder() {
+  closeAttachMenu();
+  const modal = document.getElementById('video-recorder-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('vm-start-cam-btn').classList.remove('hidden');
+  document.getElementById('vm-record-btn').classList.add('hidden');
+  document.getElementById('vm-stop-btn').classList.add('hidden');
+  document.getElementById('vm-rec-timer').classList.add('hidden');
+  document.getElementById('vm-placeholder').style.display = 'flex';
+  document.getElementById('vm-error').classList.remove('show');
+}
+
+function closeVideoRecorder() {
+  stopVideoCapture();
+  document.getElementById('video-recorder-modal').classList.add('hidden');
+}
+
+async function startVideoCapture() {
+  const errEl = document.getElementById('vm-error');
+  errEl.classList.remove('show');
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+    const preview = document.getElementById('video-preview');
+    preview.srcObject = videoStream;
+    // Explicitly call play() — required on some browsers even with autoplay attribute
+    await preview.play().catch(() => {});
+    document.getElementById('vm-placeholder').style.display = 'none';
+    document.getElementById('vm-start-cam-btn').classList.add('hidden');
+    document.getElementById('vm-record-btn').classList.remove('hidden');
+  } catch (e) {
+    errEl.textContent = '❌ Camera access denied. Please allow camera and microphone access.';
+    errEl.classList.add('show');
+  }
+}
+
+function stopVideoCapture() {
+  if (videoStream) {
+    videoStream.getTracks().forEach(t => t.stop());
+    videoStream = null;
+  }
+  const preview = document.getElementById('video-preview');
+  if (preview) preview.srcObject = null;
+  if (videoRecTimer) { clearInterval(videoRecTimer); videoRecTimer = null; }
+  isVideoRecording = false;
+  videoChunks = [];
+}
+
+async function toggleVideoRecording() {
+  if (!isVideoRecording) {
+    // ── Start recording
+    videoChunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+      ? 'video/webm;codecs=vp9,opus'
+      : 'video/webm';
+    videoMediaRecorder = new MediaRecorder(videoStream, { mimeType });
+    videoMediaRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data); };
+    videoMediaRecorder.onstop = async () => {
+      const blob = new Blob(videoChunks, { type: 'video/webm' });
+      closeVideoRecorder();
+      try {
+        const file = new File([blob], `recording_${Date.now()}.webm`, { type: 'video/webm' });
+        const url  = await uploadVideoToStorage(file, 'Video Recording');
+        await sendVideoMessage(url, 'Video Recording');
+      } catch (e) {
+        showToast('❌ Upload failed.', 4000);
+      }
+    };
+
+    videoMediaRecorder.start(1000); // collect every second
+    isVideoRecording = true;
+    videoRecSeconds  = 0;
+    document.getElementById('vm-record-btn').classList.add('hidden');
+    document.getElementById('vm-stop-btn').classList.remove('hidden');
+    const timerEl = document.getElementById('vm-rec-timer');
+    timerEl.classList.remove('hidden');
+    videoRecTimer = setInterval(() => {
+      videoRecSeconds++;
+      const m = String(Math.floor(videoRecSeconds / 60)).padStart(2, '0');
+      const s = String(videoRecSeconds % 60).padStart(2, '0');
+      document.getElementById('vm-timer-text').textContent = `${m}:${s}`;
+    }, 1000);
+  } else {
+    // ── Stop recording
+    if (videoRecTimer) { clearInterval(videoRecTimer); videoRecTimer = null; }
+    videoMediaRecorder.stop();
+    isVideoRecording = false;
+  }
+}
+
+// ── LIVE STREAMING (WebRTC + Firestore signaling) ─────────────────────────────
+async function startLiveStream() {
+  closeAttachMenu();
+  if (!S.openGroupId || !S.user) return;
+
+  // ── Step 1: Check if a session is already active ──────────────────────────
+  let sessionRef;
+  try {
+    sessionRef = db.collection('groups').doc(S.openGroupId).collection('live').doc('session');
+    const sessionSnap = await sessionRef.get();
+    if (sessionSnap.exists && sessionSnap.data()?.active) {
+      showToast('⚠️ Someone is already live in this group', 3000);
+      return;
+    }
+  } catch (e) {
+    console.error('startLiveStream — session read error:', e);
+    showToast('❌ Cannot start live: missing Firestore rules for /live — see console', 4000);
+    return;
+  }
+
+  // ── Step 2: Get camera + mic ───────────────────────────────────────────────
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+  } catch (e) {
+    console.error('getUserMedia error:', e);
+    showToast('❌ Camera/microphone access denied', 3000);
+    return;
+  }
+
+  // ── Step 3: Show broadcaster overlay ──────────────────────────────────────
+  isLiveBroadcaster = true;
+  const overlay = document.getElementById('live-broadcaster-overlay');
+  overlay.classList.remove('hidden');
+  const localVid = document.getElementById('live-local-video');
+  localVid.srcObject = localStream;
+  await localVid.play().catch(() => {});
+
+  // ── Step 4: Write session + post notice to chat ────────────────────────────
+  try {
+    const name = S.profile.displayName || S.profile.username;
+    await sessionRef.set({
+      broadcasterId:   S.user.uid,
+      broadcasterName: name,
+      active: true,
+      viewerCount: 0,
+      startedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    await db.collection('groups').doc(S.openGroupId).collection('messages').add({
+      userId:      'system',
+      username:    'system',
+      text:        `${name} just went live! Tap to watch.`,
+      isLiveNotice: true,
+      liveGroupId:  S.openGroupId,
+      broadcasterId: S.user.uid,
+      createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
+      isSystemBlocked: false
+    });
+  } catch (e) {
+    console.error('startLiveStream — Firestore write error:', e);
+    showToast('❌ Live write failed: check Firestore /live rules', 4000);
+    stopLiveStream();
+    return;
+  }
+
+  // ── Step 5: Listen for viewers joining ────────────────────────────────────
+  unsubViewers = sessionRef.collection('viewers')
+    .onSnapshot(async snap => {
+      for (const change of snap.docChanges()) {
+        const viewerId = change.doc.id;
+        const data     = change.doc.data();
+        if (change.type === 'added' && !peerConnections[viewerId]) {
+          await _handleNewViewer(viewerId, change.doc.ref);
+        }
+        if ((change.type === 'added' || change.type === 'modified') && data.answer) {
+          const pc = peerConnections[viewerId];
+          if (pc && typeof pc._applyAnswer === 'function') {
+            await pc._applyAnswer(data.answer).catch(() => {});
+          }
+        }
+      }
+      const count = snap.size;
+      document.getElementById('live-viewer-count').textContent = count + (count === 1 ? ' watching' : ' watching');
+      sessionRef.update({ viewerCount: count }).catch(() => {});
+    });
+}
+
+async function _handleNewViewer(viewerId, viewerRef) {
+  const pc = new RTCPeerConnection(STUN_SERVERS);
+  peerConnections[viewerId] = pc;
+
+  // Queue ICE candidates that arrive before the remote description is set
+  let pendingCandidates = [];
+  let remoteDescSet = false;
+
+  pc._applyAnswer = async (answerSDP) => {
+    if (pc.signalingState !== 'have-local-offer') return;
+    await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(answerSDP)));
+    remoteDescSet = true;
+    // Drain any queued candidates
+    for (const c of pendingCandidates) {
+      try { await pc.addIceCandidate(c); } catch {}
+    }
+    pendingCandidates = [];
+  };
+
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  pc.onicecandidate = async e => {
+    if (e.candidate) {
+      await viewerRef.collection('broadcasterCandidates').add(e.candidate.toJSON()).catch(() => {});
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'failed') {
+      pc.restartIce();
+    }
+  };
+
+  // Listen for viewer ICE candidates — queue them if remote desc isn't set yet
+  viewerRef.collection('viewerCandidates').onSnapshot(snap => {
+    snap.docChanges().forEach(async change => {
+      if (change.type === 'added') {
+        const candidate = new RTCIceCandidate(change.doc.data());
+        if (remoteDescSet) {
+          try { await pc.addIceCandidate(candidate); } catch {}
+        } else {
+          pendingCandidates.push(candidate);
+        }
+      }
+    });
+  });
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await viewerRef.set({ offer: JSON.stringify(offer) }, { merge: true });
+}
+
+async function stopLiveStream() {
+  isLiveBroadcaster = false;
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  Object.values(peerConnections).forEach(pc => pc.close());
+  peerConnections = {};
+  if (unsubViewers) { unsubViewers(); unsubViewers = null; }
+
+  document.getElementById('live-broadcaster-overlay').classList.add('hidden');
+  const lv = document.getElementById('live-local-video');
+  if (lv) lv.srcObject = null;
+
+  if (S.openGroupId) {
+    await db.collection('groups').doc(S.openGroupId)
+      .collection('live').doc('session')
+      .update({ active: false }).catch(() => {});
+  }
+  showToast('📴 Live stream ended');
+}
+
+async function joinLiveStream(groupId) {
+  if (!groupId || !S.user) return;
+
+  let sessionRef, data;
+  try {
+    sessionRef  = db.collection('groups').doc(groupId).collection('live').doc('session');
+    const sessionSnap = await sessionRef.get();
+
+    if (!sessionSnap.exists || !sessionSnap.data()?.active) {
+      showToast('❌ This live stream has already ended', 3000);
+      return;
+    }
+    data = sessionSnap.data();
+  } catch (e) {
+    console.error('joinLiveStream — session read error:', e);
+    showToast('❌ Cannot join live: check Firestore /live rules', 4000);
+    return;
+  }
+
+  if (data.broadcasterId === S.user.uid) {
+    // I am the broadcaster — show my overlay instead
+    document.getElementById('live-broadcaster-overlay').classList.remove('hidden');
+    return;
+  }
+
+  const overlay = document.getElementById('live-viewer-overlay');
+  overlay.classList.remove('hidden');
+  document.getElementById('live-host-name').textContent = data.broadcasterName;
+  document.getElementById('live-watcher-count').textContent = (data.viewerCount || 0) + ' watching';
+  document.getElementById('live-connecting-msg').classList.remove('hidden');
+
+  // Register as a viewer
+  let viewerRef;
+  try {
+    viewerRef = sessionRef.collection('viewers').doc(S.user.uid);
+    await viewerRef.set({ viewerId: S.user.uid, joinedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  } catch (e) {
+    console.error('joinLiveStream — viewer registration error:', e);
+    showToast('❌ Could not join stream: check Firestore /live/viewers rules', 4000);
+    leaveLiveStream();
+    return;
+  }
+
+  viewerPeerConnection = new RTCPeerConnection(STUN_SERVERS);
+
+  // Queue broadcaster ICE candidates until remote description is applied
+  let pendingBroadcasterCandidates = [];
+  let viewerRemoteDescSet = false;
+
+  viewerPeerConnection.ontrack = e => {
+    const vid = document.getElementById('live-remote-video');
+    if (vid.srcObject !== e.streams[0]) {
+      vid.srcObject = e.streams[0];
+      vid.play().catch(() => {});
+      document.getElementById('live-connecting-msg').classList.add('hidden');
+    }
+  };
+
+  viewerPeerConnection.onicecandidate = async e => {
+    if (e.candidate) {
+      await viewerRef.collection('viewerCandidates').add(e.candidate.toJSON()).catch(() => {});
+    }
+  };
+
+  viewerPeerConnection.onconnectionstatechange = () => {
+    if (viewerPeerConnection?.connectionState === 'failed') {
+      viewerPeerConnection.restartIce();
+    }
+  };
+
+  // Listen for broadcaster's offer and apply answer
+  viewerSnapshotUnsub = viewerRef.onSnapshot(async snap => {
+    const d = snap.data();
+    if (d?.offer && viewerPeerConnection && viewerPeerConnection.signalingState === 'stable' && !d.answer) {
+      await viewerPeerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(d.offer)));
+      const answer = await viewerPeerConnection.createAnswer();
+      await viewerPeerConnection.setLocalDescription(answer);
+      viewerRemoteDescSet = true;
+      // Drain queued ICE candidates
+      for (const c of pendingBroadcasterCandidates) {
+        try { await viewerPeerConnection.addIceCandidate(c); } catch {}
+      }
+      pendingBroadcasterCandidates = [];
+      await viewerRef.set({ answer: JSON.stringify(answer) }, { merge: true });
+    }
+  });
+
+  // Listen for broadcaster's ICE candidates — queue if remote desc not set yet
+  viewerRef.collection('broadcasterCandidates').onSnapshot(snap => {
+    snap.docChanges().forEach(async change => {
+      if (change.type === 'added') {
+        const candidate = new RTCIceCandidate(change.doc.data());
+        if (viewerRemoteDescSet && viewerPeerConnection) {
+          try { await viewerPeerConnection.addIceCandidate(candidate); } catch {}
+        } else {
+          pendingBroadcasterCandidates.push(candidate);
+        }
+      }
+    });
+  });
+}
+
+async function leaveLiveStream() {
+  if (viewerSnapshotUnsub) { viewerSnapshotUnsub(); viewerSnapshotUnsub = null; }
+  if (viewerPeerConnection) { viewerPeerConnection.close(); viewerPeerConnection = null; }
+  const vid = document.getElementById('live-remote-video');
+  if (vid) vid.srcObject = null;
+  document.getElementById('live-viewer-overlay').classList.add('hidden');
+  document.getElementById('live-connecting-msg').classList.add('hidden');
+}
+
+// Listens for an active live session in the current group and shows/hides the LIVE button
+function startLiveSessionListener(groupId) {
+  if (unsubLiveSession) { unsubLiveSession(); unsubLiveSession = null; }
+  const liveBtn = document.getElementById('live-join-btn');
+  if (!liveBtn) return;
+
+  unsubLiveSession = db.collection('groups').doc(groupId)
+    .collection('live').doc('session')
+    .onSnapshot(
+      snap => {
+        if (!snap.exists || !snap.data()?.active) {
+          liveBtn.style.display = 'none';
+          return;
+        }
+        const data = snap.data();
+        if (data.broadcasterId !== S.user?.uid) {
+          liveBtn.style.display = 'flex';
+        } else {
+          liveBtn.style.display = 'none'; // broadcaster sees their own overlay
+        }
+      },
+      err => {
+        // Permission denied — /live collection rule is missing in Firestore
+        console.warn('Live session listener error (check Firestore /live rules):', err.message);
+        liveBtn.style.display = 'none';
+      }
+    );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 
 // ── CUSTOM PERSONALITY TAGS ───────────────────────────────────────────────────
 

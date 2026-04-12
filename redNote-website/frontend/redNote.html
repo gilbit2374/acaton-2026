@@ -208,7 +208,18 @@
         </div>
       </div>
 
-    
+      <div class="arch-card">
+        <div class="arch-card-title">🏗️ Architecture Preview</div>
+        <div class="arch-row"><span class="arch-key">Auth</span><span class="arch-val">Firebase Auth · Email + Username</span></div>
+        <div class="arch-row"><span class="arch-key">Database</span><span class="arch-val">Firestore · Real-time listeners</span></div>
+        <div class="arch-row"><span class="arch-key">Chat</span><span class="arch-val">onSnapshot() · Instant delivery</span></div>
+        <div class="arch-row"><span class="arch-key">Moderation</span><span class="arch-val">Creator deletes any message</span></div>
+        <div class="arch-row"><span class="arch-key">Groups</span><span class="arch-val">Public searchable + Private invite</span></div>
+        <div class="arch-row"><span class="arch-key">AI Keyboard</span><span class="arch-val">Middleware hook ready</span></div>
+      </div>
+      <div style="height:20px"></div>
+    </div>
+
     <!-- Bottom Nav -->
     <nav id="bottom-nav">
       <button class="nav-btn active" data-tab="chats" onclick="switchTab('chats')">
@@ -244,11 +255,52 @@
         <div class="chat-hdr-sub" id="chat-hdr-sub">—</div>
       </div>
       <span class="mod-badge" id="chat-mod-badge" style="display:none">MOD</span>
+      <!-- Live join button — shown when someone in group is live -->
+      <button id="live-join-btn" class="live-join-header-btn" style="display:none" onclick="joinLiveStream(S.openGroupId)">
+        <span class="live-dot-pulse"></span> LIVE
+      </button>
     </div>
 
     <div class="messages-list" id="messages-list"></div>
 
+
+    <!-- Upload progress bar -->
+    <div id="upload-progress-bar" class="upload-progress-bar hidden">
+      <div class="upload-progress-fill" id="upload-progress-fill"></div>
+      <span id="upload-progress-label" class="upload-progress-label">Uploading…</span>
+    </div>
+
     <div class="input-bar">
+      <!-- Attach menu — MUST be inside input-bar so bottom:calc(100%) positions relative to it -->
+      <div id="attach-menu" class="attach-menu hidden">
+        <button class="attach-option" onclick="triggerVideoFileInput()">
+          <span class="attach-opt-icon">📹</span>
+          <div class="attach-opt-text">
+            <span class="attach-opt-title">Upload Video</span>
+            <span class="attach-opt-sub">Share a video file (max 100 MB)</span>
+          </div>
+        </button>
+        <button class="attach-option" onclick="openVideoRecorder()">
+          <span class="attach-opt-icon">🎥</span>
+          <div class="attach-opt-text">
+            <span class="attach-opt-title">Record Video</span>
+            <span class="attach-opt-sub">Film and send with your camera</span>
+          </div>
+        </button>
+        <button class="attach-option attach-option-live" onclick="startLiveStream()">
+          <span class="attach-opt-icon">🔴</span>
+          <div class="attach-opt-text">
+            <span class="attach-opt-title">Go Live</span>
+            <span class="attach-opt-sub">Stream live to everyone in this group</span>
+          </div>
+        </button>
+      </div>
+      <!-- Attach / media button -->
+      <button class="attach-btn" id="attach-btn" onclick="toggleAttachMenu(event)" title="Share Media">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+      </button>
       <button class="grammar-check-btn" onclick="manualGrammarCheck()" title="Check Grammar">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
       </button>
@@ -361,6 +413,79 @@
     </div>
   </div>
   <div id="info-panel-overlay" class="info-panel-overlay" onclick="closeGroupInfo()"></div>
+
+  <!-- HIDDEN VIDEO FILE INPUT -->
+  <input type="file" id="video-file-input" accept="video/*" style="display:none" onchange="handleVideoFileSelect(this)" />
+
+  <!-- VIDEO RECORDER MODAL -->
+  <div id="video-recorder-modal" class="vm-overlay hidden">
+    <div class="vm-sheet">
+      <div class="vm-header">
+        <button class="vm-close-btn" onclick="closeVideoRecorder()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <h3 class="vm-title">Record Video</h3>
+        <div style="width:32px"></div>
+      </div>
+      <div class="vm-preview-wrap">
+        <video id="video-preview" autoplay muted playsinline class="vm-preview"></video>
+        <div id="vm-placeholder" class="vm-placeholder">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+          <span>Camera preview will appear here</span>
+        </div>
+        <div id="vm-rec-timer" class="vm-rec-timer hidden">
+          <span class="vm-rec-dot"></span><span id="vm-timer-text">00:00</span>
+        </div>
+      </div>
+      <div id="vm-error" class="custom-tag-error" style="margin:8px 16px 0"></div>
+      <div class="vm-actions">
+        <button id="vm-start-cam-btn" class="btn-primary" onclick="startVideoCapture()" style="flex:1">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+          Start Camera
+        </button>
+        <button id="vm-record-btn" class="btn-primary hidden" onclick="toggleVideoRecording()" style="flex:1;background:#e11d48">
+          <span class="vm-rec-dot" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>
+          Start Recording
+        </button>
+        <button id="vm-stop-btn" class="btn-primary hidden" onclick="toggleVideoRecording()" style="flex:1;background:#059669">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          Stop &amp; Send
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE BROADCASTER OVERLAY -->
+  <div id="live-broadcaster-overlay" class="live-overlay hidden">
+    <video id="live-local-video" autoplay muted playsinline class="live-video-bg"></video>
+    <div class="live-overlay-header">
+      <div class="live-badge-pill"><span class="live-dot-pulse"></span> LIVE</div>
+      <span id="live-viewer-count" class="live-viewer-count-badge">0 watching</span>
+      <button class="live-end-btn" onclick="stopLiveStream()">End Stream</button>
+    </div>
+    <div class="live-overlay-footer">
+      <div class="live-you-label">You are broadcasting</div>
+    </div>
+  </div>
+
+  <!-- LIVE VIEWER OVERLAY -->
+  <div id="live-viewer-overlay" class="live-overlay hidden">
+    <video id="live-remote-video" autoplay playsinline class="live-video-bg"></video>
+    <div class="live-overlay-header">
+      <button class="back-btn" style="background:rgba(255,255,255,0.15);color:white" onclick="leaveLiveStream()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <div>
+        <div id="live-host-name" class="live-host-label">—</div>
+        <div class="live-badge-pill" style="display:inline-flex"><span class="live-dot-pulse"></span> LIVE</div>
+      </div>
+      <span id="live-watcher-count" class="live-viewer-count-badge">0 watching</span>
+    </div>
+    <div id="live-connecting-msg" class="live-connecting-msg">
+      <div class="live-spinner"></div>
+      Connecting to stream…
+    </div>
+  </div>
 
 </div><!-- #app -->
 <script>
