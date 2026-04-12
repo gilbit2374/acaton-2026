@@ -241,8 +241,9 @@ function toggleQuizTag(btn) {
 }
 
 async function savePersonality() {
+  // For custom tags, store as "custom:TraitName" so they're distinguishable
   const selected = [...document.querySelectorAll('#quiz-tags-grid .personality-tag.selected')]
-    .map(b => b.dataset.id);
+    .map(b => b.dataset.custom ? 'custom:' + b.dataset.custom : b.dataset.id);
   try {
     if (S.user) {
       await db.collection('users').doc(S.user.uid).update({ personalityTags: selected });
@@ -897,6 +898,154 @@ function hideSuggestion() {
 }
 
 
+// ── CUSTOM PERSONALITY TAGS ───────────────────────────────────────────────────
+
+/**
+ * Runs the local toxicity classifier on a given string.
+ * Returns true if the text is flagged as toxic, false otherwise.
+ * If the model isn't loaded yet, it allows the text through (returns false).
+ */
+async function isToxicText(text) {
+  if (!window.classifier) {
+    console.warn("⚠️ Toxicity model not loaded — allowing text through.");
+    return false;
+  }
+  try {
+    const results = await window.classifier(text);
+    if (!results || results.length === 0) return false;
+    const top = results[0];
+    if ((top.label === 'LABEL_1' || top.label === 'toxic') && top.score > 0.5) return true;
+    if (top.label === 'LABEL_0' && top.score < 0.5) return true;
+    return false;
+  } catch (e) {
+    console.error('Toxicity check error:', e);
+    return false;
+  }
+}
+
+/**
+ * Adds a custom personality trait to the signup quiz tag grid,
+ * after checking it for toxicity with the AI model.
+ */
+async function addCustomPersonalityTag() {
+  const input   = document.getElementById('custom-quiz-tag-input');
+  const errorEl = document.getElementById('custom-quiz-tag-error');
+  const text    = input.value.trim();
+
+  errorEl.classList.remove('show');
+
+  if (!text) return;
+  if (text.length < 2) {
+    errorEl.textContent = '⚠️ Trait must be at least 2 characters.';
+    errorEl.classList.add('show');
+    return;
+  }
+
+  // Check for duplicates in the grid
+  const existing = [...document.querySelectorAll('#quiz-tags-grid .personality-tag')];
+  if (existing.some(b => (b.dataset.custom || b.textContent.trim()).toLowerCase().includes(text.toLowerCase()))) {
+    errorEl.textContent = '⚠️ This trait already exists.';
+    errorEl.classList.add('show');
+    return;
+  }
+
+  // Show loading state
+  const addBtn = document.getElementById('custom-quiz-tag-input').nextElementSibling;
+  addBtn.textContent = 'Checking…';
+  addBtn.disabled = true;
+  input.disabled = true;
+
+  const toxic = await isToxicText(text);
+
+  addBtn.textContent = 'Add';
+  addBtn.disabled = false;
+  input.disabled = false;
+
+  if (toxic) {
+    errorEl.textContent = '🚫 This trait was flagged as inappropriate by the AI. Please choose a different one.';
+    errorEl.classList.add('show');
+    // Shake the input for visual feedback
+    input.classList.add('input-shake');
+    setTimeout(() => input.classList.remove('input-shake'), 500);
+    return;
+  }
+
+  // All clear — append the tag as already selected
+  const grid   = document.getElementById('quiz-tags-grid');
+  const tagId  = 'custom_' + uid();
+  const tagBtn = document.createElement('button');
+  tagBtn.className       = 'personality-tag selected custom-tag';
+  tagBtn.dataset.id      = tagId;
+  tagBtn.dataset.custom  = text;
+  tagBtn.onclick         = function() { this.classList.toggle('selected'); };
+  tagBtn.innerHTML       = `<span class="ptag-emoji">✨</span>${esc(text)}`;
+  grid.appendChild(tagBtn);
+
+  input.value = '';
+}
+
+/**
+ * Adds a custom topic tag to the Create Group modal tag grid,
+ * after checking it for toxicity with the AI model.
+ */
+async function addCustomGroupTag() {
+  const input   = document.getElementById('custom-group-tag-input');
+  const errorEl = document.getElementById('custom-group-tag-error');
+  const text    = input.value.trim();
+
+  errorEl.classList.remove('show');
+
+  if (!text) return;
+  if (text.length < 2) {
+    errorEl.textContent = '⚠️ Tag must be at least 2 characters.';
+    errorEl.classList.add('show');
+    return;
+  }
+
+  // Check for duplicates
+  const existing = [...document.querySelectorAll('#group-tags-grid .personality-tag')];
+  if (existing.some(b => (b.dataset.custom || b.textContent.trim()).toLowerCase().includes(text.toLowerCase()))) {
+    errorEl.textContent = '⚠️ This tag already exists.';
+    errorEl.classList.add('show');
+    return;
+  }
+
+  // Show loading state
+  const addBtn = document.getElementById('custom-group-tag-input').nextElementSibling;
+  addBtn.textContent = 'Checking…';
+  addBtn.disabled = true;
+  input.disabled = true;
+
+  const toxic = await isToxicText(text);
+
+  addBtn.textContent = 'Add';
+  addBtn.disabled = false;
+  input.disabled = false;
+
+  if (toxic) {
+    errorEl.textContent = '🚫 This tag was flagged as inappropriate by the AI. Please choose a different one.';
+    errorEl.classList.add('show');
+    input.classList.add('input-shake');
+    setTimeout(() => input.classList.remove('input-shake'), 500);
+    return;
+  }
+
+  // All clear — append the tag as already selected
+  const grid  = document.getElementById('group-tags-grid');
+  const tagId = 'custom_' + uid();
+  const el    = document.createElement('button');
+  el.className      = 'personality-tag selected custom-tag';
+  el.dataset.id     = tagId;
+  el.dataset.custom = text;
+  el.onclick        = function() { this.classList.toggle('selected'); };
+  el.innerHTML      = `<span class="ptag-emoji">✨</span>${esc(text)}`;
+  grid.appendChild(el);
+
+  input.value = '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 //create group modal
 function openModal() {
   // Build pickers
@@ -966,8 +1115,9 @@ async function createGroup() {
     }
 
     try {
+        // For custom tags, store as "custom:Label" so they're distinguishable
         const selectedTags = [...document.querySelectorAll('#group-tags-grid .personality-tag.selected')]
-            .map(b => b.dataset.id);
+            .map(b => b.dataset.custom ? 'custom:' + b.dataset.custom : b.dataset.id);
 
         const groupRef = db.collection('groups').doc();
         await groupRef.set({

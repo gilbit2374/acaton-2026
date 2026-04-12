@@ -1328,3 +1328,67 @@ body {
   letter-spacing: 0.5px;
   padding: 4px 16px 8px;
 }
+/* ── CUSTOM PERSONALITY TAG INPUT ─────────────────────────────────────────── */
+.custom-tag-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.custom-tag-input {
+  flex: 1 !important;
+  margin: 0 !important;
+  font-size: 14px !important;
+  padding: 10px 14px !important;
+}
+.btn-add-tag {
+  padding: 10px 16px;
+  background: var(--navy);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font-d);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.18s, opacity 0.18s;
+}
+.btn-add-tag:hover:not(:disabled) { background: var(--navy-mid); }
+.btn-add-tag:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.custom-tag-error {
+  display: none;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: #FFF0F0;
+  border-radius: 8px;
+  border-left: 3px solid var(--red);
+  line-height: 1.4;
+}
+.custom-tag-error.show { display: block; }
+
+/* Custom tags look distinct from preset tags */
+.personality-tag.custom-tag {
+  border-color: var(--navy-mid);
+  background: #f0f3f7;
+}
+.personality-tag.custom-tag.selected {
+  background: var(--navy);
+  color: white;
+  border-color: var(--navy);
+}
+
+/* Shake animation for toxic rejection */
+@keyframes inputShake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+.input-shake { animation: inputShake 0.45s ease; }

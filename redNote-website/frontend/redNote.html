@@ -107,7 +107,16 @@
         <span class="personality-intro-hint">Select as many as you like</span>
       </div>
       <div class="personality-tags-grid" id="quiz-tags-grid"></div>
-      <button class="btn-primary" style="margin-top:20px" onclick="savePersonality()">Find My Groups →</button>
+
+      <div class="custom-tag-row">
+        <input class="form-input custom-tag-input" id="custom-quiz-tag-input" type="text"
+          placeholder="✏️ Create your own trait..." maxlength="30"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomPersonalityTag();}" />
+        <button class="btn-add-tag" onclick="addCustomPersonalityTag()">Add</button>
+      </div>
+      <div id="custom-quiz-tag-error" class="custom-tag-error"></div>
+
+      <button class="btn-primary" style="margin-top:16px" onclick="savePersonality()">Find My Groups →</button>
       <button class="btn-skip" onclick="skipPersonality()">Skip for now</button>
     </div>
   </div>
@@ -311,6 +320,13 @@
       <div class="form-group">
         <label class="form-label">Topics &amp; Interests</label>
         <div class="personality-tags-grid" id="group-tags-grid" style="max-height:130px;overflow-y:auto"></div>
+        <div class="custom-tag-row" style="margin-top:10px">
+          <input class="form-input custom-tag-input" id="custom-group-tag-input" type="text"
+            placeholder="✏️ Create your own topic..." maxlength="30"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomGroupTag();}" />
+          <button class="btn-add-tag" onclick="addCustomGroupTag()">Add</button>
+        </div>
+        <div id="custom-group-tag-error" class="custom-tag-error"></div>
       </div>
 
       <div class="toggle-row">
