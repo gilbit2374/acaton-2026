@@ -389,11 +389,14 @@ async function handleAuth() {
   } catch (err) {
     pendingPersonalitySetup = false;
     let msg = err.message || 'Something went wrong';
-    if (err.code === 'auth/user-not-found')    msg = 'No account found with this email';
-    if (err.code === 'auth/wrong-password')     msg = 'Incorrect password';
-    if (err.code === 'auth/email-already-in-use') msg = 'Email already registered — try signing in';
-    if (err.code === 'auth/invalid-email')      msg = 'Invalid email address';
-    if (err.code === 'auth/too-many-requests')  msg = 'Too many attempts. Try again later';
+    if (err.code === 'auth/user-not-found')        msg = 'No account found with this email';
+    if (err.code === 'auth/wrong-password')        msg = 'Incorrect password';
+    if (err.code === 'auth/email-already-in-use')  msg = 'Email already registered — try signing in';
+    if (err.code === 'auth/invalid-email')         msg = 'Invalid email address';
+    if (err.code === 'auth/too-many-requests')     msg = 'Too many attempts. Try again later';
+    if (err.code === 'auth/invalid-credential')    msg = 'Email or password are incorrect';
+
+    console.log("the masseg is ", msg, " The masseg code is: ", err.code);
     showError('auth-error', msg);
     setBtn('auth-submit-btn', authMode==='login'?'Sign In':'Create Account', false);
   }
