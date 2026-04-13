@@ -1718,4 +1718,108 @@ body {
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-/* for commit */
+
+
+
+
+
+
+
+
+
+
+.lang-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.lang-dropdown {
+  position: relative;
+  width: 80%; /* main change */
+}
+
+/* button */
+.lang-btn {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  transition: all 0.15s ease;
+}
+
+.lang-btn:hover {
+  border-color: #10b981;
+  background: #f9fafb;
+}
+
+/* open state (optional polish) */
+.lang-dropdown.open .lang-btn {
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgba(5,150,105,0.1);
+}
+
+/* dropdown menu */
+.lang-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+
+  overflow: hidden;
+
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+
+  transition: all 0.15s ease;
+}
+
+/* open */
+.lang-dropdown.open .lang-menu {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* options */
+.lang-option {
+  padding: 10px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.lang-option:hover {
+  background: #f0fdf4;
+}
+
+/* arrow nicer */
+.arrow {
+  width: 0;
+  height: 0;
+  margin-left: 6px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #059669;
+  transition: transform 0.15s ease;
+}
+
+/* rotate when open */
+.lang-dropdown.open .arrow {
+  transform: rotate(180deg);
+}

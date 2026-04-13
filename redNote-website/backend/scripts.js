@@ -2063,4 +2063,21 @@ if (isOwner) {
     console.error("Group Info Failed to Open:", e);
   }
 }
-//for commit
+
+function toggleLangMenu() {
+  const menu = document.getElementById("langMenu");
+  menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+function setLang(value, label) {
+  document.querySelector(".lang-btn").innerHTML = label + '<span class="arrow"></span>';
+  document.getElementById("langMenu").style.display = "none";
+  setLanguage(value);
+}
+
+/* close when clicking outside */
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".lang-dropdown")) {
+    document.getElementById("langMenu").style.display = "none";
+  }
+});

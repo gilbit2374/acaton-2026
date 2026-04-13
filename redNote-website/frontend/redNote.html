@@ -34,7 +34,7 @@
 </script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>redNote — Group Chat</title>
+<title>JusTalk — Group Chat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
@@ -53,39 +53,46 @@
       <div class="auth-logo-box">
         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       </div>
-      <div class="auth-title">JusTalk</div>
-      <div class="auth-sub">Real-time group conversations<br/>built on identity, not anonymity</div>
+      <div class="auth-title" data-i18n="website_name">JusTalk</div>
+      <div class="auth-sub" data-i18n-html="auth_subtitle_html">Real-time group conversations<br/>built on identity, not anonymity</div>
+
+      <!-- Language switcher (auth view) -->
+      <select class="lang-select" onchange="setLanguage(this.value)"
+              style="margin-top:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:4px 8px;font-size:13px;cursor:pointer">
+        <option value="en">🇬🇧 English</option>
+        <option value="he">🇮🇱 עברית</option>
+      </select>
     </div>
 
     <div class="auth-panel">
       <div class="tab-row">
-        <button class="tab-btn active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
-        <button class="tab-btn" id="tab-register" onclick="switchAuthTab('register')">Create Account</button>
+        <button class="tab-btn active" id="tab-login" onclick="switchAuthTab('login')" data-i18n="tab_sign_in">Sign In</button>
+        <button class="tab-btn" id="tab-register" onclick="switchAuthTab('register')" data-i18n="tab_create_account">Create Account</button>
       </div>
 
       <div id="auth-error" class="error-banner"></div>
 
       <div id="register-fields" style="display:none">
         <div class="form-group">
-          <label class="form-label">Display Name</label>
-          <input class="form-input" id="input-displayname" type="text" placeholder="Your full name" />
+          <label class="form-label" data-i18n="label_display_name">Display Name</label>
+          <input class="form-input" id="input-displayname" type="text" data-i18n-placeholder="placeholder_full_name" placeholder="Your full name" />
         </div>
         <div class="form-group">
-          <label class="form-label">Username</label>
-          <input class="form-input" id="input-username" type="text" placeholder="@handle (unique)" />
+          <label class="form-label" data-i18n="label_username">Username</label>
+          <input class="form-input" id="input-username" type="text" data-i18n-placeholder="placeholder_username" placeholder="@handle (unique)" />
         </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" id="input-email" type="email" placeholder="you@example.com" />
+        <label class="form-label" data-i18n="label_email">Email</label>
+        <input class="form-input" id="input-email" type="email" data-i18n-placeholder="placeholder_email" placeholder="you@example.com" />
       </div>
       <div class="form-group">
-        <label class="form-label">Password</label>
+        <label class="form-label" data-i18n="label_password">Password</label>
         <input class="form-input" id="input-password" type="password" placeholder="••••••••" />
       </div>
 
-      <button class="btn-primary" id="auth-submit-btn" onclick="handleAuth()">Sign In</button>
+      <button class="btn-primary" id="auth-submit-btn" onclick="handleAuth()" data-i18n="btn_sign_in">Sign In</button>
           <div style="height: 20px;"></div>
     </div>
   </div>
@@ -98,26 +105,27 @@
       <div class="auth-logo-box">
         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       </div>
-      <div class="auth-title">Your Vibe?</div>
-      <div class="auth-sub">Pick your interests so we can<br/>recommend the best groups for you</div>
+      <div class="auth-title" data-i18n="personality_title">Your Vibe?</div>
+      <div class="auth-sub" data-i18n-html="personality_subtitle_html">Pick your interests so we can<br/>recommend the best groups for you</div>
     </div>
     <div class="auth-panel personality-panel">
       <div class="personality-intro">
-        <span class="personality-intro-label">Choose what you love</span>
-        <span class="personality-intro-hint">Select as many as you like</span>
+        <span class="personality-intro-label" data-i18n="personality_intro_label">Choose what you love</span>
+        <span class="personality-intro-hint" data-i18n="personality_intro_hint">Select as many as you like</span>
       </div>
       <div class="personality-tags-grid" id="quiz-tags-grid"></div>
 
       <div class="custom-tag-row">
         <input class="form-input custom-tag-input" id="custom-quiz-tag-input" type="text"
+          data-i18n-placeholder="placeholder_custom_trait"
           placeholder="✏️ Create your own trait..." maxlength="30"
           onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomPersonalityTag();}" />
-        <button class="btn-add-tag" onclick="addCustomPersonalityTag()">Add</button>
+        <button class="btn-add-tag" onclick="addCustomPersonalityTag()" data-i18n="btn_add">Add</button>
       </div>
       <div id="custom-quiz-tag-error" class="custom-tag-error"></div>
 
-      <button class="btn-primary" style="margin-top:16px" onclick="savePersonality()">Find My Groups →</button>
-      <button class="btn-skip" onclick="skipPersonality()">Skip for now</button>
+      <button class="btn-primary" style="margin-top:16px" onclick="savePersonality()" data-i18n="btn_find_groups">Find My Groups →</button>
+      <button class="btn-skip" onclick="skipPersonality()" data-i18n="btn_skip">Skip for now</button>
     </div>
   </div>
 
@@ -126,8 +134,11 @@
 
     <!-- Top Header -->
     <div id="top-header">
-      <div class="header-logo">Jus<span>Talk</span></div>
+      <div class="header-logo" data-i18n-html="header_logo_html">Jus<span>Talk</span></div>
       <div style="flex:1"></div>
+
+      <!-- Language switcher (main app) -->
+      
       <button class="icon-btn" id="create-group-btn" onclick="openModal()" title="New Group">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -137,7 +148,7 @@
     <!-- Screens -->
     <div class="screen active" id="screen-chats">
       <div class="section-header">
-        <span class="section-title">My Groups</span>
+        <span class="section-title" data-i18n="section_my_groups">My Groups</span>
         <span class="section-count" id="chats-count">0 joined</span>
       </div>
       <div id="chats-list"></div>
@@ -147,13 +158,13 @@
       <div class="search-wrap">
         <div class="search-bar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" id="search-input" placeholder="Search public groups..." oninput="renderSearch()" />
+          <input type="text" id="search-input" data-i18n-placeholder="placeholder_search" placeholder="Search public groups..." oninput="renderSearch()" />
         </div>
       </div>
       <div class="chip-row">
-        <button class="chip active" data-filter="all"     onclick="setFilter('all')">All Groups</button>
-        <button class="chip"        data-filter="joined"  onclick="setFilter('joined')">Joined</button>
-        <button class="chip"        data-filter="discover" onclick="setFilter('discover')">Discover</button>
+        <button class="chip active" data-filter="all"     onclick="setFilter('all')"     data-i18n="filter_all">All Groups</button>
+        <button class="chip"        data-filter="joined"  onclick="setFilter('joined')"  data-i18n="filter_joined">Joined</button>
+        <button class="chip"        data-filter="discover" onclick="setFilter('discover')" data-i18n="filter_discover">Discover</button>
       </div>
       <div id="search-results"></div>
     </div>
@@ -172,7 +183,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
           <div class="menu-item-text">
-            <div class="menu-item-label">My Groups</div>
+            <div class="menu-item-label" data-i18n="menu_my_groups">My Groups</div>
             <div class="menu-item-desc" id="profile-group-desc">0 groups joined</div>
           </div>
           <span class="count-badge" id="profile-group-count">0</span>
@@ -182,9 +193,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
           <div class="menu-item-text">
-    <div class="menu-item-label">Moderated Groups</div>
-    <div class="menu-item-desc" id="profile-mod-desc">Groups you created</div> </div>
-</div>
+            <div class="menu-item-label" data-i18n="menu_moderated_groups">Moderated Groups</div>
+            <div class="menu-item-desc" id="profile-mod-desc" data-i18n="menu_moderated_desc">Groups you created</div>
+          </div>
+        </div>
           <div class="menu-item-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
         </div>
         <div class="menu-item">
@@ -192,17 +204,44 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </div>
           <div class="menu-item-text">
-            <div class="menu-item-label">Account Settings</div>
-            <div class="menu-item-desc">Password, email, preferences</div>
+            <div class="menu-item-label" data-i18n="menu_account_settings">Account Settings</div>
+            <div class="menu-item-desc" data-i18n="menu_account_desc">Password, email, preferences</div>
           </div>
+
           <div class="menu-item-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
         </div>
-          <div class="menu-list" style="margin-top:10px">
+        
+        <div class="menu-item">
+          <div class="menu-item-icon" style="background:#236ee8">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15 15 0 0 1 0 20"/>
+              <path d="M12 2a15 15 0 0 0 0 20"/>
+            </svg>
+          </div>
+
+
+
+      <div class="lang-dropdown">
+        <select class="lang-select" onchange="setLanguage(this.value)"
+
+style="margin-top:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:4px 8px;font-size:13px;cursor:pointer">
+
+<option value="en">🇬🇧 English</option>
+
+<option value="he">🇮🇱 עברית</option>
+
+</select>        </div>
+      </div>
+
+
+      <div class="menu-list" style="margin-top:10px">
         <div class="menu-item" onclick="logout()">
           <div class="menu-item-icon" style="background:#FFF0F0">
             <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </div>
-          <div class="menu-item-label" style="color:var(--red)">Sign Out</div>
+          <div class="menu-item-label" style="color:var(--red)" data-i18n="menu_sign_out">Sign Out</div>
         </div>
       </div>
       </div>
@@ -218,19 +257,19 @@
         <div class="nav-icon-wrap">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </div>
-        <span class="nav-label">Chats</span>
+        <span class="nav-label" data-i18n="nav_chats">Chats</span>
       </button>
       <button class="nav-btn" data-tab="search" onclick="switchTab('search')">
         <div class="nav-icon-wrap">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
-        <span class="nav-label">Discover</span>
+        <span class="nav-label" data-i18n="nav_discover">Discover</span>
       </button>
       <button class="nav-btn" data-tab="profile" onclick="switchTab('profile')">
         <div class="nav-icon-wrap">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         </div>
-        <span class="nav-label">Profile</span>
+        <span class="nav-label" data-i18n="nav_profile">Profile</span>
       </button>
     </nav>
   </div>
@@ -246,10 +285,10 @@
         <div class="chat-hdr-name" id="chat-hdr-name">—</div>
         <div class="chat-hdr-sub" id="chat-hdr-sub">—</div>
       </div>
-      <span class="mod-badge" id="chat-mod-badge" style="display:none">MOD</span>
+      <span class="mod-badge" id="chat-mod-badge" style="display:none" data-i18n="badge_mod">MOD</span>
       <!-- Live join button — shown when someone in group is live -->
       <button id="live-join-btn" class="live-join-header-btn" style="display:none" onclick="joinLiveStream(S.openGroupId)">
-        <span class="live-dot-pulse"></span> LIVE
+        <span class="live-dot-pulse"></span> <span data-i18n="live_label">LIVE</span>
       </button>
     </div>
 
@@ -259,7 +298,7 @@
     <!-- Upload progress bar -->
     <div id="upload-progress-bar" class="upload-progress-bar hidden">
       <div class="upload-progress-fill" id="upload-progress-fill"></div>
-      <span id="upload-progress-label" class="upload-progress-label">Uploading…</span>
+      <span id="upload-progress-label" class="upload-progress-label" data-i18n="uploading">Uploading…</span>
     </div>
 
     <div class="input-bar">
@@ -268,22 +307,22 @@
         <button class="attach-option" onclick="triggerVideoFileInput()">
           <span class="attach-opt-icon">📹</span>
           <div class="attach-opt-text">
-            <span class="attach-opt-title">Upload Video</span>
-            <span class="attach-opt-sub">Share a video file (max 100 MB)</span>
+            <span class="attach-opt-title" data-i18n="attach_upload_video">Upload Video</span>
+            <span class="attach-opt-sub" data-i18n="attach_upload_video_sub">Share a video file (max 100 MB)</span>
           </div>
         </button>
         <button class="attach-option" onclick="openVideoRecorder()">
           <span class="attach-opt-icon">🎥</span>
           <div class="attach-opt-text">
-            <span class="attach-opt-title">Record Video</span>
-            <span class="attach-opt-sub">Film and send with your camera</span>
+            <span class="attach-opt-title" data-i18n="attach_record_video">Record Video</span>
+            <span class="attach-opt-sub" data-i18n="attach_record_video_sub">Film and send with your camera</span>
           </div>
         </button>
         <button class="attach-option attach-option-live" onclick="startLiveStream()">
           <span class="attach-opt-icon">🔴</span>
           <div class="attach-opt-text">
-            <span class="attach-opt-title">Go Live</span>
-            <span class="attach-opt-sub">Stream live to everyone in this group</span>
+            <span class="attach-opt-title" data-i18n="attach_go_live">Go Live</span>
+            <span class="attach-opt-sub" data-i18n="attach_go_live_sub">Stream live to everyone in this group</span>
           </div>
         </button>
       </div>
@@ -297,14 +336,14 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
       </button>
 
-      <textarea class="msg-input" id="msg-input" placeholder="Message..." rows="1"
+      <textarea class="msg-input" id="msg-input" data-i18n-placeholder="placeholder_message" placeholder="Message..." rows="1"
         oninput="autoResize(this)" onkeydown="handleMsgKey(event)"></textarea>
 
       <div id="suggestion-container" class="suggestion-container hidden">
         <div class="suggestion-content">
           <span id="suggestion-text"></span>
         </div>
-        <button class="btn-apply" onclick="applySuggestion()">Apply</button>
+        <button class="btn-apply" onclick="applySuggestion()" data-i18n="btn_apply">Apply</button>
         <button class="btn-ignore" onclick="hideSuggestion()">×</button>
       </div>
 
@@ -329,50 +368,51 @@
   <div class="modal-overlay" id="create-modal" onclick="handleOverlayClick(event)">
     <div class="modal-sheet">
       <div class="modal-handle"></div>
-      <div class="modal-title">Create Group</div>
+      <div class="modal-title" data-i18n="modal_create_group_title">Create Group</div>
 
       <div id="modal-error" class="error-banner"></div>
 
       <div class="form-group">
-        <label class="form-label">Group Name</label>
-        <input class="form-input" id="new-group-name" type="text" placeholder="e.g. Design Weekly" maxlength="50" />
+        <label class="form-label" data-i18n="label_group_name">Group Name</label>
+        <input class="form-input" id="new-group-name" type="text" data-i18n-placeholder="placeholder_group_name" placeholder="e.g. Design Weekly" maxlength="50" />
       </div>
       <div class="form-group">
-        <label class="form-label">Description (optional)</label>
-        <input class="form-input" id="new-group-desc" type="text" placeholder="What's this group about?" maxlength="120" />
+        <label class="form-label" data-i18n="label_group_desc">Description (optional)</label>
+        <input class="form-input" id="new-group-desc" type="text" data-i18n-placeholder="placeholder_group_desc" placeholder="What's this group about?" maxlength="120" />
       </div>
       <div class="form-group">
-        <label class="form-label">Emoji Icon</label>
+        <label class="form-label" data-i18n="label_emoji_icon">Emoji Icon</label>
         <div class="emoji-grid" id="emoji-grid"></div>
       </div>
       <div class="form-group">
-        <label class="form-label">Color</label>
+        <label class="form-label" data-i18n="label_color">Color</label>
         <div class="color-grid" id="color-grid"></div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Topics &amp; Interests</label>
+        <label class="form-label" data-i18n="label_topics">Topics &amp; Interests</label>
         <div class="personality-tags-grid" id="group-tags-grid" style="max-height:130px;overflow-y:auto"></div>
         <div class="custom-tag-row" style="margin-top:10px">
           <input class="form-input custom-tag-input" id="custom-group-tag-input" type="text"
+            data-i18n-placeholder="placeholder_custom_topic"
             placeholder="✏️ Create your own topic..." maxlength="30"
             onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomGroupTag();}" />
-          <button class="btn-add-tag" onclick="addCustomGroupTag()">Add</button>
+          <button class="btn-add-tag" onclick="addCustomGroupTag()" data-i18n="btn_add">Add</button>
         </div>
         <div id="custom-group-tag-error" class="custom-tag-error"></div>
       </div>
 
       <div class="toggle-row">
         <div>
-          <div class="toggle-info-label" id="toggle-label">Public Group</div>
-          <div class="toggle-info-desc" id="toggle-desc">Anyone can search &amp; join</div>
+          <div class="toggle-info-label" id="toggle-label" data-i18n="toggle_public">Public Group</div>
+          <div class="toggle-info-desc" id="toggle-desc" data-i18n="toggle_public_desc">Anyone can search &amp; join</div>
         </div>
         <div class="toggle-track on" id="privacy-toggle" onclick="togglePrivacy()">
           <div class="toggle-knob"></div>
         </div>
       </div>
 
-        <button class="btn-primary" onclick="createGroup()">Create Group</button>
+        <button class="btn-primary" onclick="createGroup()" data-i18n="btn_create_group">Create Group</button>
     </div>
   </div>
 
@@ -382,7 +422,7 @@
       <button class="back-btn" onclick="closeGroupInfo()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="m15 18-6-6 6-6"/></svg>
       </button>
-      <h3 style="flex:1; text-align:center; margin-right: 40px; color: var(--navy);">Group Info</h3>
+      <h3 style="flex:1; text-align:center; margin-right: 40px; color: var(--navy);" data-i18n="panel_group_info">Group Info</h3>
     </div>
 
     <div class="info-panel-content">
@@ -391,7 +431,7 @@
       <div id="info-panel-desc" class="info-group-desc">Description goes here</div>
 
       <div class="info-section">
-        <div class="info-section-title">Members</div>
+        <div class="info-section-title" data-i18n="info_members">Members</div>
         <div id="info-panel-members" style="font-weight: 600; color: var(--navy);">
           <i class="fas fa-users" style="margin-right: 8px; color: var(--muted);"></i> 1 Participant
         </div>
@@ -399,7 +439,7 @@
 
       <button id="btn-delete-group" class="btn-primary hidden"
               style="background: #fee2e2; color: var(--red); width: 100%; margin-top: 20px; box-shadow: none;"
-              onclick="deleteCurrentGroup()">
+              onclick="deleteCurrentGroup()" data-i18n="btn_delete_group">
         🗑️ Delete Group
       </button>
     </div>
@@ -416,14 +456,14 @@
         <button class="vm-close-btn" onclick="closeVideoRecorder()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <h3 class="vm-title">Record Video</h3>
+        <h3 class="vm-title" data-i18n="vm_title">Record Video</h3>
         <div style="width:32px"></div>
       </div>
       <div class="vm-preview-wrap">
         <video id="video-preview" autoplay muted playsinline class="vm-preview"></video>
         <div id="vm-placeholder" class="vm-placeholder">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-          <span>Camera preview will appear here</span>
+          <span data-i18n="vm_placeholder">Camera preview will appear here</span>
         </div>
         <div id="vm-rec-timer" class="vm-rec-timer hidden">
           <span class="vm-rec-dot"></span><span id="vm-timer-text">00:00</span>
@@ -433,15 +473,15 @@
       <div class="vm-actions">
         <button id="vm-start-cam-btn" class="btn-primary" onclick="startVideoCapture()" style="flex:1">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-          Start Camera
+          <span data-i18n="vm_start_camera">Start Camera</span>
         </button>
         <button id="vm-record-btn" class="btn-primary hidden" onclick="toggleVideoRecording()" style="flex:1;background:#e11d48">
           <span class="vm-rec-dot" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>
-          Start Recording
+          <span data-i18n="vm_start_recording">Start Recording</span>
         </button>
         <button id="vm-stop-btn" class="btn-primary hidden" onclick="toggleVideoRecording()" style="flex:1;background:#059669">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-          Stop &amp; Send
+          <span data-i18n="vm_stop_send">Stop &amp; Send</span>
         </button>
       </div>
     </div>
@@ -451,12 +491,12 @@
   <div id="live-broadcaster-overlay" class="live-overlay hidden">
     <video id="live-local-video" autoplay muted playsinline class="live-video-bg"></video>
     <div class="live-overlay-header">
-      <div class="live-badge-pill"><span class="live-dot-pulse"></span> LIVE</div>
+      <div class="live-badge-pill"><span class="live-dot-pulse"></span> <span data-i18n="live_label">LIVE</span></div>
       <span id="live-viewer-count" class="live-viewer-count-badge">0 watching</span>
-      <button class="live-end-btn" onclick="stopLiveStream()">End Stream</button>
+      <button class="live-end-btn" onclick="stopLiveStream()" data-i18n="live_end_stream">End Stream</button>
     </div>
     <div class="live-overlay-footer">
-      <div class="live-you-label">You are broadcasting</div>
+      <div class="live-you-label" data-i18n="live_broadcasting">You are broadcasting</div>
     </div>
   </div>
 
@@ -469,13 +509,13 @@
       </button>
       <div>
         <div id="live-host-name" class="live-host-label">—</div>
-        <div class="live-badge-pill" style="display:inline-flex"><span class="live-dot-pulse"></span> LIVE</div>
+        <div class="live-badge-pill" style="display:inline-flex"><span class="live-dot-pulse"></span> <span data-i18n="live_label">LIVE</span></div>
       </div>
       <span id="live-watcher-count" class="live-viewer-count-badge">0 watching</span>
     </div>
     <div id="live-connecting-msg" class="live-connecting-msg">
       <div class="live-spinner"></div>
-      Connecting to stream…
+      <span data-i18n="live_connecting">Connecting to stream…</span>
     </div>
   </div>
 
@@ -493,6 +533,12 @@
   <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-storage-compat.js"></script><!--audio-->
+
+  <!-- i18n: language files first, then the engine -->
+  <script src="lang/en.js"></script>
+  <script src="lang/he.js"></script>
+
+  <script src="lang/i18n.js"></script>
 
     <script src="config.js"></script>
     <script src="../backend/scripts.js"></script>
