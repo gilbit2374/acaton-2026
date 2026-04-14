@@ -223,17 +223,17 @@
 
 
 
-      <div class="lang-dropdown">
-        <select class="lang-select" onchange="setLanguage(this.value)"
-
-style="margin-top:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:4px 8px;font-size:13px;cursor:pointer">
-
-<option value="en">🇬🇧 English</option>
-
-<option value="he">🇮🇱 עברית</option>
-
-</select>        </div>
-      </div>
+      <div class="lang-dropdown" id="langDrop">
+  <div class="lang-selected" id="langSelected" onclick="toggleLangDrop()">
+    <span id="langFlag">🇬🇧</span>
+    <span id="langLabel">English</span>
+    <span class="lang-arrow">▾</span>
+  </div>
+  <div class="lang-options">
+    <div class="lang-option active" data-value="en" data-flag="🇬🇧" data-label="English" onclick="pickLang(this)">🇬🇧 English</div>
+    <div class="lang-option" data-value="he" data-flag="🇮🇱" data-label="עברית" onclick="pickLang(this)">🇮🇱 עברית</div>
+  </div>
+</div>
 
 
       <div class="menu-list" style="margin-top:10px">

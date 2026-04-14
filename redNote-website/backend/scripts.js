@@ -2093,4 +2093,20 @@ function setLang(value, label) {
   setLanguage(value);
 }
 
+function toggleLangDrop() {
+  document.getElementById('langDrop').classList.toggle('open');
+}
+function pickLang(el) {
+  document.getElementById('langFlag').textContent  = el.dataset.flag;
+  document.getElementById('langLabel').textContent = el.dataset.label;
+  document.querySelectorAll('.lang-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('langDrop').classList.remove('open');
+  setLanguage(el.dataset.value);
+}
+// Close on outside click
+document.addEventListener('click', e => {
+  const d = document.getElementById('langDrop');
+  if (d && !d.contains(e.target)) d.classList.remove('open');
+});
 /* close when clicking outside */
