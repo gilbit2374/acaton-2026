@@ -1824,12 +1824,12 @@ body {
   transform: rotate(180deg);
 }
 .lang-dropdown { position: relative; display: inline-block; margin-top: 12px; }
-.lang-selected { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: rgba(0,255,255,0.12); color: cyan; border: 1px solid rgba(0,255,255,0.4); border-radius: 8px; font-size: 13px; cursor: pointer; user-select: none; transition: background 0.15s; }
-.lang-selected:hover { background: rgba(0,255,255,0.2); }
-.lang-arrow { margin-left: 4px; font-size: 10px; transition: transform 0.2s; display: inline-block; }
+.lang-selected { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #ffffff; color: #1a2e3b; border: 1px solid #b0bec5; border-radius: 8px; font-size: 13px; cursor: pointer; user-select: none; transition: background 0.15s, border-color 0.15s; }
+.lang-selected:hover { background: #f0f4f8; border-color: #0077a8; }
+.lang-arrow { margin-left: 4px; font-size: 10px; color: #0077a8; transition: transform 0.2s; display: inline-block; }
 .lang-dropdown.open .lang-arrow { transform: rotate(180deg); }
-.lang-options { position: absolute; top: calc(100% + 4px); left: 0; min-width: 100%; background: #0d1117; border: 1px solid rgba(0,255,255,0.35); border-radius: 8px; overflow: hidden; opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity 0.15s, transform 0.15s; z-index: 999; }
+.lang-options { position: absolute; top: calc(100% + 4px); left: 0; min-width: 100%; background: #ffffff; border: 1px solid #b0bec5; border-radius: 8px; overflow: hidden; opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity 0.15s, transform 0.15s; z-index: 999; }
 .lang-dropdown.open .lang-options { opacity: 1; transform: translateY(0); pointer-events: all; }
-.lang-option { display: flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 13px; color: cyan; cursor: pointer; transition: background 0.1s; }
-.lang-option:hover { background: rgba(0,255,255,0.15); }
-.lang-option.active { background: rgba(0,255,255,0.1); }
+.lang-option { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; color: #374151; cursor: pointer; transition: background 0.1s, color 0.1s; }
+.lang-option:hover { background: #f0f4f8; color: #0077a8; }
+.lang-option.active { background: #e8f4fb; color: #005f87; font-weight: 500; }
