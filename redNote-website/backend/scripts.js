@@ -257,6 +257,24 @@ function hideLoading() {
 function showAuthScreen() {
   document.getElementById('auth-view').style.display = 'flex';
   document.getElementById('main-app').style.display  = 'none';
+
+  // Reset the auth form so the Sign In button is always clickable after logout
+  const submitBtn = document.getElementById('auth-submit-btn');
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign In';
+  }
+
+  // Clear any leftover error messages and input fields
+  showError('auth-error', '');
+  const emailInput    = document.getElementById('input-email');
+  const passwordInput = document.getElementById('input-password');
+  if (emailInput)    emailInput.value = '';
+  if (passwordInput) passwordInput.value = '';
+
+  // Make sure we're on the login tab
+  authMode = 'login';
+  switchAuthTab('login');
 }
 
 function showMainApp() {
@@ -2076,4 +2094,3 @@ function setLang(value, label) {
 }
 
 /* close when clicking outside */
-
