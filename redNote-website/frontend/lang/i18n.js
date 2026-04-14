@@ -55,9 +55,7 @@ function setLanguage(lang) {
     console.warn('[i18n] Unknown language:', lang);
     return;
   }
-  else if (lang === "he"){
-   document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
-  }
+  document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
   _currentLang = lang;
   localStorage.setItem('justalk_lang', lang);
   applyTranslations();

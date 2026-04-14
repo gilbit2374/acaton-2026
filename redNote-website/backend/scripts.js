@@ -2076,8 +2076,4 @@ function setLang(value, label) {
 }
 
 /* close when clicking outside */
-document.addEventListener("click", (e) => {
-  if (!e.target.closest(".lang-dropdown")) {
-    document.getElementById("langMenu").style.display = "none";
-  }
-});
+
