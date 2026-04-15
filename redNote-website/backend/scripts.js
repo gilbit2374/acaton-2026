@@ -133,8 +133,8 @@ const S = {
 let unsubMyGroups   = null;
 let unsubPublicGroups = null;
 let unsubMessages   = null;
-let unsubTyping     = null;
-let typingTimeout   = null;
+let unsubTyping     = null;   // typing indicator listener
+let typingTimer     = null;   // debounce for clearing typing status
 let pendingPersonalitySetup = false;
 
 //constants
@@ -341,6 +341,7 @@ function teardownListeners() {
   if (unsubMyGroups)     { unsubMyGroups();     unsubMyGroups = null; }
   if (unsubPublicGroups) { unsubPublicGroups(); unsubPublicGroups = null; }
   if (unsubMessages)     { unsubMessages();     unsubMessages = null; }
+  if (unsubTyping)       { unsubTyping();       unsubTyping = null; }
 }
 
 //login
@@ -702,9 +703,9 @@ function closeChat() {
   document.getElementById('chat-screen').classList.remove('open');
   if (unsubMessages) { unsubMessages(); unsubMessages = null; }
   if (unsubLiveSession) { unsubLiveSession(); unsubLiveSession = null; }
-  if (unsubTyping)   { unsubTyping();   unsubTyping   = null; }
-  clearTypingStatus();
-  hideTypingIndicator();
+  clearTimeout(typingTimer);
+  setTyping(false);
+  stopTypingListener();
   // If broadcaster leaves the chat screen, end the live
   if (isLiveBroadcaster) stopLiveStream();
   // If viewer leaves, disconnect
@@ -712,72 +713,6 @@ function closeChat() {
   closeAttachMenu();
   S.openGroupId = null; S.openGroupData = null;
 }
-
-// ── TYPING INDICATOR ─────────────────────────────────────────────────────────
-
-function setTypingStatus(isTyping) {
-  if (!S.openGroupId || !S.user) return;
-  clearTimeout(typingTimeout);
-  if (isTyping) {
-    // Write presence to Firestore
-    db.collection('groups').doc(S.openGroupId)
-      .collection('typing').doc(S.user.uid)
-      .set({
-        name: S.profile.displayName || S.profile.username,
-        ts:   firebase.firestore.FieldValue.serverTimestamp()
-      }).catch(() => {});
-    // Auto-clear after 4 s of no new keystrokes
-    typingTimeout = setTimeout(() => clearTypingStatus(), 4000);
-  } else {
-    clearTypingStatus();
-  }
-}
-
-function clearTypingStatus() {
-  if (!S.openGroupId || !S.user) return;
-  db.collection('groups').doc(S.openGroupId)
-    .collection('typing').doc(S.user.uid)
-    .delete().catch(() => {});
-}
-
-function startTypingListener(groupId) {
-  if (unsubTyping) { unsubTyping(); unsubTyping = null; }
-  unsubTyping = db.collection('groups').doc(groupId)
-    .collection('typing')
-    .onSnapshot(snap => {
-      const others = snap.docs
-        .filter(d => d.id !== S.user?.uid)
-        .map(d => d.data().name || 'Someone');
-      renderTypingIndicator(others);
-    }, () => {});
-}
-
-function renderTypingIndicator(names) {
-  const el = document.getElementById('typing-indicator');
-  if (!el) return;
-  if (names.length === 0) {
-    hideTypingIndicator();
-    return;
-  }
-  const label = names.length === 1
-    ? `<strong>${esc(names[0])}</strong> is typing…`
-    : names.length === 2
-      ? `<strong>${esc(names[0])}</strong> and <strong>${esc(names[1])}</strong> are typing…`
-      : `<strong>${esc(names[0])}</strong> and ${names.length - 1} others are typing…`;
-
-  el.innerHTML = `
-    <div class="typing-dots"><span></span><span></span><span></span></div>
-    <span class="typing-label">${label}</span>
-  `;
-  el.classList.add('visible');
-}
-
-function hideTypingIndicator() {
-  const el = document.getElementById('typing-indicator');
-  if (el) el.classList.remove('visible');
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function startMessagesListener(groupId) {
   if (unsubMessages) unsubMessages();
@@ -896,7 +831,9 @@ async function sendMessage() {
   inp.value = '';
   inp.style.height = '';
   document.getElementById('send-btn').disabled = true;
-  clearTypingStatus();
+  // Clear typing status immediately on send
+  clearTimeout(typingTimer);
+  setTyping(false);
 
   const ts = firebase.firestore.FieldValue.serverTimestamp();
   const batch = db.batch();
@@ -971,6 +908,57 @@ async function deleteMessage(groupId, msgId) {
   }
 }
 
+
+// ── TYPING INDICATOR ─────────────────────────────────────────────────────────
+function setTyping(isTyping) {
+  if (!S.openGroupId || !S.user) return;
+  const ref = db.collection('groups').doc(S.openGroupId)
+                .collection('typingStatus').doc(S.user.uid);
+  if (isTyping) {
+    ref.set({ username: S.profile.username, ts: firebase.firestore.FieldValue.serverTimestamp() })
+       .catch(() => {});
+  } else {
+    ref.delete().catch(() => {});
+  }
+}
+
+function startTypingListener(groupId) {
+  if (unsubTyping) { unsubTyping(); unsubTyping = null; }
+  unsubTyping = db.collection('groups').doc(groupId)
+    .collection('typingStatus')
+    .onSnapshot(snap => {
+      const others = snap.docs
+        .filter(d => d.id !== S.user?.uid)
+        .map(d => d.data().username)
+        .filter(Boolean);
+      renderTypingIndicator(others);
+    }, () => {});
+}
+
+function stopTypingListener() {
+  if (unsubTyping) { unsubTyping(); unsubTyping = null; }
+  renderTypingIndicator([]);
+}
+
+function renderTypingIndicator(usernames) {
+  const el = document.getElementById('typing-indicator');
+  if (!el) return;
+  if (usernames.length === 0) {
+    el.classList.remove('visible');
+    return;
+  }
+  let names;
+  if (usernames.length === 1)      names = `@${usernames[0]}`;
+  else if (usernames.length === 2) names = `@${usernames[0]} & @${usernames[1]}`;
+  else                             names = `@${usernames[0]} & ${usernames.length - 1} others`;
+  const verb = usernames.length === 1 ? 'is typing' : 'are typing';
+  el.innerHTML = `
+    <div class="typing-dots"><span></span><span></span><span></span></div>
+    <span class="typing-names">${names} <span class="typing-action">${verb}…</span></span>`;
+  el.classList.add('visible');
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function handleMsgKey(e) {
   if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
@@ -981,15 +969,18 @@ function autoResize(el) {
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   document.getElementById('send-btn').disabled = !el.value.trim();
 
-  // Typing indicator: broadcast that we are typing
-  if (el.value.trim()) {
-    setTypingStatus(true);
-  } else {
-    setTypingStatus(false);
-  }
-
   // Hide suggestion box if the user starts changing the text
   hideSuggestion();
+
+  // Typing indicator — broadcast that this user is typing, then auto-clear
+  if (el.value.trim()) {
+    setTyping(true);
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => setTyping(false), 4000);
+  } else {
+    clearTimeout(typingTimer);
+    setTyping(false);
+  }
 }
 
 let isCheckingGrammar = false; // Prevent double-clicks
