@@ -30,14 +30,19 @@
     }
   }
 
+  
   window.addEventListener('load', initAI);
 </script>
+
+
+
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>JusTalk — Group Chat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="avatar-builder.css" />
 
 </head>
 <body>
@@ -170,13 +175,21 @@
     </div>
 
     <div class="screen" id="screen-profile">
-      <div class="profile-hero">
-        <div class="profile-big-avatar" id="profile-big-avatar">?</div>
-        <div class="profile-name" id="profile-name">—</div>
-        <div class="profile-username" id="profile-uname">—</div>
-        <div class="profile-email" id="profile-email">—</div>
-      </div>
-
+     <div class="profile-hero">
+  <div class="profile-avatar-wrap">
+    <div class="profile-big-avatar" id="profile-big-avatar">?</div>
+    <button class="profile-avatar-edit-btn" onclick="openAvatarBuilder()" title="Edit avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    </button>
+  </div>
+  <div class="profile-name" id="profile-name">—</div>
+  <div class="profile-username" id="profile-uname">—</div>
+  <div class="profile-email" id="profile-email">—</div>
+</div>
       <div class="menu-list">
         <div class="menu-item">
           <div class="menu-item-icon" style="background:#FFF0F0">
@@ -523,6 +536,58 @@
   </div>
 
 </div><!-- #app -->
+
+    <!-- ── Avatar Builder Modal ─────────────────────────── -->
+<div class="ab-modal-overlay" id="avatar-builder-modal" onclick="if(event.target===this)closeAvatarBuilder()">
+  <div class="ab-sheet">
+    <div class="ab-handle"></div>
+    <div class="ab-header">
+      <span class="ab-title">Customise Avatar</span>
+      <button class="ab-close-btn" onclick="closeAvatarBuilder()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Live preview -->
+    <div class="ab-preview-wrap">
+      <div class="ab-preview" id="ab-preview">?</div>
+      <span class="ab-preview-label">Preview</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="ab-tabs">
+      <button class="ab-tab-btn active" data-tab="animal" onclick="switchBuilderTab('animal')">🐾 Animal</button>
+      <button class="ab-tab-btn"        data-tab="bg"     onclick="switchBuilderTab('bg')">🎨 Background</button>
+      <button class="ab-tab-btn"        data-tab="object" onclick="switchBuilderTab('object')">✨ Object</button>
+    </div>
+
+    <!-- Panels -->
+    <div class="ab-panels">
+      <div class="ab-tab-panel active" data-tab="animal">
+        <div class="ab-items-grid" id="ab-animals-grid"></div>
+      </div>
+      <div class="ab-tab-panel" data-tab="bg">
+        <div class="ab-bg-grid" id="ab-bg-grid"></div>
+      </div>
+      <div class="ab-tab-panel" data-tab="object">
+        <div class="ab-items-grid" id="ab-objects-grid"></div>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div class="ab-save-wrap">
+      <button class="ab-save-btn" id="ab-save-btn" onclick="saveAvatar()">Save Avatar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Avatar Builder scripts ─────────────────────────── -->
+
+
 <script>
   // פונקציית העזר להפעלת המודל (חובה שתהיה כאן או בראש scripts.js)
   window.runClassifier = async function(task, modelPath) {
@@ -545,6 +610,6 @@
 
     <script src="config.js"></script>
     <script src="../backend/scripts.js"></script>
+    <script src="../backend/avatar-builder.js"></script>
     </body>
 </html>
-<!-- #for commit -->

@@ -1,0 +1,312 @@
+/* ═══════════════════════════════════════════════════════
+   avatar-builder.css  —  Profile avatar customiser
+   Add this via:  <link rel="stylesheet" href="avatar-builder.css" />
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Profile hero wrapper & edit button ──────────────── */
+.profile-avatar-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 14px;
+}
+
+/* Resets the margin that was on profile-big-avatar directly */
+.profile-avatar-wrap .profile-big-avatar {
+  margin-bottom: 0;
+}
+
+.profile-avatar-edit-btn {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.18s, box-shadow 0.18s;
+  z-index: 2;
+  padding: 0;
+  color: #374151;
+}
+.profile-avatar-edit-btn:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+}
+.profile-avatar-edit-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Avatar emoji layers (used on profile + header) ──── */
+.av-animal-layer {
+  font-size: 2em;
+  line-height: 1;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+.av-obj-layer {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 0.85em;
+  line-height: 1;
+  z-index: 0;
+  opacity: 0.85;
+}
+
+/* header avatar is smaller, scale down */
+.header-avatar .av-animal-layer { font-size: 1.3em; }
+.header-avatar .av-obj-layer    { font-size: 0.6em; bottom: 2px; right: 2px; }
+
+/* ── Modal overlay ───────────────────────────────────── */
+.ab-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1100;
+  align-items: flex-end;
+  justify-content: center;
+}
+.ab-modal-overlay.open {
+  display: flex;
+  animation: abFadeIn 0.2s ease;
+}
+@keyframes abFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Modal sheet ─────────────────────────────────────── */
+.ab-sheet {
+  background: white;
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-width: 480px;
+  padding: 0 0 32px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  animation: abSlideUp 0.28s cubic-bezier(0.32,0.72,0,1);
+  overflow: hidden;
+}
+@keyframes abSlideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ── Sheet header ────────────────────────────────────── */
+.ab-handle {
+  width: 40px; height: 4px;
+  border-radius: 2px;
+  background: #e5e7eb;
+  margin: 12px auto 0;
+  flex-shrink: 0;
+}
+.ab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 0;
+  flex-shrink: 0;
+}
+.ab-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0D1B2A;
+  font-family: var(--font-d, 'Outfit', sans-serif);
+}
+.ab-close-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  transition: background 0.15s;
+}
+.ab-close-btn:hover { background: #e5e7eb; }
+.ab-close-btn svg { width: 16px; height: 16px; }
+
+/* ── Live preview ────────────────────────────────────── */
+.ab-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0 12px;
+  flex-shrink: 0;
+}
+.ab-preview {
+  width: 90px;
+  height: 90px;
+  border-radius: 26px;
+  background: linear-gradient(135deg, #D91C1C, #ff6b6b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+  transition: background 0.3s;
+}
+.ab-preview-label {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 8px;
+  font-family: var(--font-d, 'Outfit', sans-serif);
+  letter-spacing: 0.03em;
+}
+.ab-preview .av-animal-layer { font-size: 2.6em; }
+.ab-preview .av-obj-layer    { font-size: 1em; bottom: 6px; right: 6px; }
+
+/* ── Tabs ────────────────────────────────────────────── */
+.ab-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.ab-tab-btn {
+  flex: 1;
+  padding: 8px 4px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: var(--font-d, 'Outfit', sans-serif);
+}
+.ab-tab-btn.active {
+  background: #0D1B2A;
+  color: white;
+}
+
+/* ── Scrollable panel area ───────────────────────────── */
+.ab-panels {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px;
+  -webkit-overflow-scrolling: touch;
+}
+.ab-tab-panel { display: none; }
+.ab-tab-panel.active { display: block; }
+
+/* ── Animal + Objects grid ───────────────────────────── */
+.ab-items-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding-bottom: 8px;
+}
+.ab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px 8px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.12s;
+}
+.ab-item:hover {
+  background: #f3f4f6;
+  transform: translateY(-2px);
+}
+.ab-item.selected {
+  border-color: #D91C1C;
+  background: #fff0f0;
+}
+.ab-item-emoji { font-size: 24px; line-height: 1; }
+.ab-item-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: #6b7280;
+  font-family: var(--font-d, 'Outfit', sans-serif);
+  text-align: center;
+  line-height: 1.2;
+}
+.ab-item.selected .ab-item-label { color: #D91C1C; }
+
+/* ── Background grid ─────────────────────────────────── */
+.ab-bg-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding-bottom: 8px;
+}
+.ab-bg-item {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  transition: transform 0.12s, border-color 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.ab-bg-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.08);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.ab-bg-item:hover { transform: scale(1.06); }
+.ab-bg-item:hover::after { opacity: 1; }
+.ab-bg-item.selected {
+  border-color: white;
+  box-shadow: 0 0 0 3px #D91C1C;
+  transform: scale(1.06);
+}
+.ab-check {
+  font-size: 20px;
+  font-weight: 800;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+/* ── Save button ─────────────────────────────────────── */
+.ab-save-wrap {
+  padding: 16px 20px 0;
+  flex-shrink: 0;
+}
+.ab-save-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: #D91C1C;
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-d, 'Outfit', sans-serif);
+  transition: opacity 0.15s, transform 0.12s;
+}
+.ab-save-btn:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+.ab-save-btn:disabled { opacity: 0.55; cursor: not-allowed; }
